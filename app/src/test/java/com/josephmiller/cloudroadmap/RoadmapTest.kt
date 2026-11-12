@@ -158,7 +158,7 @@ class RoadmapTest {
         assertEquals(listOf("Beginner", "Medium", "Expert"), Projects.all.map { it.level }.distinct())
         val r = Roadmap()
         assertEquals("lab_ad", Projects.current(r)!!.id)
-        listOf("lab_ad", "lab_net", "lab_ticket", "lab_ps", "gh_portfolio").forEach { id ->
+        listOf("lab_ad", "lab_net", "lab_ticket", "lab_ps", "gh_portfolio", "lab_fw").forEach { id ->
             Projects.byId[id]!!.steps.indices.forEach { n -> r.toggleTask(DayTask("lab:$id:$n", "lab", "", "", id), d("2027-05-01")) }
         }
         assertEquals(Status.DONE, r.item("lab_ps")!!.status)
