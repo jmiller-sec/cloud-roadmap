@@ -22,7 +22,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
 }
 
-val appVersion = (project.findProperty("appVersion") as String?) ?: "5.3.0"
+val appVersion = (project.findProperty("appVersion") as String?) ?: "5.4.0"
 
 compose.desktop {
     application {
