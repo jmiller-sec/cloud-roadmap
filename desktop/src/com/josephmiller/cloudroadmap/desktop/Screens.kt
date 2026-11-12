@@ -203,14 +203,25 @@ fun VideosScreen(app: AppState) {
     @Suppress("UNUSED_VARIABLE") val t = app.tick
     val r = app.r
     val nextN = Bundles.next(r).firstOrNull()?.n
+    var quiz by remember { mutableStateOf<Triple<StudyBundle, LessonPair, String>?>(null) }
+    quiz?.let { (b, pair, k) ->
+        val v = if (k == "pn") pair.pn else pair.chuck
+        QuizDialog("Quick check: ${v.title}", Quiz.afterVideo(b, k, LocalDate.now()),
+            onDone = { score ->
+                app.change { Videos.toggle(it, pair.key(k)); it.studyDone.add("quiz:${pair.key(k)}:$score") }
+                quiz = null
+            },
+            onCancel = { quiz = null })
+    }
     Page("Videos", "A pair for every lesson: Practical Networking to learn it, NetworkChuck to make it stick") {
         item {
             Panel(Modifier.fillMaxWidth(), glow = Neon.Cyan) {
                 Column(Modifier.padding(18.dp)) {
                     Text("When to watch", color = Neon.Cyan, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                    Text("① Before: Practical Networking on the commute to work, the morning of that lesson.", color = Neon.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp))
+                    Text("① Before: the learn-it video on the commute to work, the morning of that lesson.", color = Neon.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp))
                     Text("② After: NetworkChuck on the ride home or your next day off, to lock it in.", color = Neon.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
                     Text("Not during: it eats your 2-hour study cap.", color = Neon.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+                    Text("Check a video off and you get a 3-question quick check.", color = Neon.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
                 }
             }
         }
@@ -236,11 +247,11 @@ fun VideosScreen(app: AppState) {
                             Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f).clickable { app.open(v.url) }) {
                                     Text(v.title, color = if (seen) Neon.Muted else Neon.Text, fontSize = 14.sp)
-                                    Text(if (k == "pn") "Practical Networking · learn it" else "NetworkChuck · make it stick", color = vc, fontSize = 12.sp)
+                                    Text(if (k == "pn") "${v.channel} · learn it" else "NetworkChuck · make it stick", color = vc, fontSize = 12.sp)
                                 }
                                 OutlinedButton(onClick = { app.open(v.url) }) { Text("Watch", color = vc) }
                                 Spacer(Modifier.width(10.dp))
-                                CheckBubble(seen, false, vc, 28.dp) { app.change { Videos.toggle(it, pair.key(k)) } }
+                                CheckBubble(seen, false, vc, 28.dp) { if (seen) app.change { Videos.toggle(it, pair.key(k)) } else quiz = Triple(b, pair, k) }
                             }
                         }
                     }

@@ -69,6 +69,13 @@ object Quiz {
     fun pick(unit: Int, count: Int, day: LocalDate, purpose: String): List<Q> {
         val pool = bank.filter { it.unit == unit }
         val rnd = java.util.Random(day.toEpochDay() * 31 + purpose.hashCode())
-        return pool.shuffled(rnd).take(count)
+        // Shuffle the answer order too, so the right answer isn't usually the first one.
+        return pool.shuffled(rnd).take(count).map { q ->
+            val order = q.options.indices.shuffled(rnd)
+            Q(q.unit, q.q, order.map { q.options[it] }, order.indexOf(q.answer))
+        }
     }
+
+    /** Quick check after a lesson video: 3 questions on that lesson's unit. */
+    fun afterVideo(b: StudyBundle, which: String, day: LocalDate) = pick(b.unit, 3, day, "vid:${b.n}:$which")
 }

@@ -1283,9 +1283,10 @@ private fun VideosTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) 
             Panel(Modifier.fillMaxWidth().padding(vertical = 4.dp), glow = Neon.Cyan.copy(alpha = 0.4f)) {
                 Column(Modifier.padding(14.dp)) {
                     Text("When to watch", color = Neon.Cyan, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text("① Before: Practical Networking on the commute to work, the morning of that lesson.", color = Neon.Text, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+                    Text("① Before: the learn-it video on the commute to work, the morning of that lesson.", color = Neon.Text, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
                     Text("② After: NetworkChuck on the ride home or your next day off, to lock it in.", color = Neon.Text, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
                     Text("Not during: it eats your 2-hour study cap.", color = Neon.Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                    Text("Check a video off and you get a 3-question quick check.", color = Neon.Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                 }
             }
         }
@@ -1471,6 +1472,16 @@ private fun LessonVideos(r: Roadmap, change: ((Roadmap) -> Unit) -> Unit) {
     val ctx = LocalContext.current
     val nextN = Bundles.next(r).firstOrNull()?.n
     val open = remember { mutableStateMapOf<Int, Boolean>() }
+    var quiz by remember { mutableStateOf<Triple<StudyBundle, LessonPair, String>?>(null) }
+    quiz?.let { (b, pair, k) ->
+        val v = if (k == "pn") pair.pn else pair.chuck
+        QuizDialog("Quick check: ${v.title}", Quiz.afterVideo(b, k, LocalDate.now()),
+            onDone = { score ->
+                change { Videos.toggle(it, pair.key(k)); it.studyDone.add("quiz:${pair.key(k)}:$score") }
+                quiz = null
+            },
+            onCancel = { quiz = null })
+    }
     Column {
         Bundles.all.forEach { b ->
             val pair = Videos.lessonByBundle[b.n] ?: return@forEach
@@ -1493,13 +1504,13 @@ private fun LessonVideos(r: Roadmap, change: ((Roadmap) -> Unit) -> Unit) {
                         Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 Modifier.size(22.dp).clip(CircleShape).background(if (seen) vc else Color.Transparent).border(1.5.dp, vc, CircleShape)
-                                    .clickable { change { Videos.toggle(it, pair.key(k)) } },
+                                    .clickable { if (seen) change { Videos.toggle(it, pair.key(k)) } else quiz = Triple(b, pair, k) },
                                 contentAlignment = Alignment.Center,
                             ) { if (seen) Icon(Icons.Filled.Check, null, tint = Neon.Bg, modifier = Modifier.size(14.dp)) }
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f).clickable { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(v.url))) } }) {
                                 Text(v.title, color = if (seen) Neon.Muted else Neon.Text, fontSize = 13.sp)
-                                Text(if (k == "pn") "Practical Networking · learn it" else "NetworkChuck · make it stick", color = vc, fontSize = 11.sp, fontFamily = Mono)
+                                Text(if (k == "pn") "${v.channel} · learn it" else "NetworkChuck · make it stick", color = vc, fontSize = 11.sp, fontFamily = Mono)
                             }
                             Icon(Icons.Filled.PlayArrow, "Play", tint = vc, modifier = Modifier.size(20.dp).clickable { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(v.url))) } })
                         }
@@ -1959,7 +1970,7 @@ private fun SettingsTab(r: Roadmap, today: LocalDate, refresh: () -> Unit, chang
                     Store.save(ctx, Roadmap(credlyUser = r.credlyUser, feedUrl = r.feedUrl)); refresh(); status = "Plan reset."
                 }
             }
-            Text("CLOUD ROADMAP v5.0 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
+            Text("CLOUD ROADMAP v5.1 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
                 textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 18.dp))
         }
     }
