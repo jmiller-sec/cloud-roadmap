@@ -200,7 +200,54 @@ fun GearScreen(app: AppState) {
 // ===================== Videos =====================
 @Composable
 fun VideosScreen(app: AppState) {
-    Page("Videos", "Free creators, sorted by who made them") {
+    @Suppress("UNUSED_VARIABLE") val t = app.tick
+    val r = app.r
+    val nextN = Bundles.next(r).firstOrNull()?.n
+    Page("Videos", "A pair for every lesson: Practical Networking to learn it, NetworkChuck to make it stick") {
+        item {
+            Panel(Modifier.fillMaxWidth(), glow = Neon.Cyan) {
+                Column(Modifier.padding(18.dp)) {
+                    Text("When to watch", color = Neon.Cyan, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text("① Before: Practical Networking on the commute to work, the morning of that lesson.", color = Neon.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp))
+                    Text("② After: NetworkChuck on the ride home or your next day off, to lock it in.", color = Neon.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
+                    Text("Not during: it eats your 2-hour study cap.", color = Neon.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+                }
+            }
+        }
+        item { Label("CS1015 lessons", Neon.Cyan) }
+        Bundles.all.forEach { b ->
+            val pair = Videos.lessonByBundle[b.n] ?: return@forEach
+            item {
+                val isNext = b.n == nextN
+                val watched = listOf("pn", "nc").count { pair.key(it) in r.studyDone }
+                var expanded by remember(b.n, isNext) { mutableStateOf(isNext) }
+                Panel(Modifier.fillMaxWidth().animateContentSize(), glow = if (isNext) Neon.Cyan else if (watched == 2) Neon.Green else Neon.Line) {
+                    Column(Modifier.padding(horizontal = 18.dp, vertical = 12.dp)) {
+                        Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }, verticalAlignment = Alignment.CenterVertically) {
+                            Text("%02d".format(b.n), color = if (isNext) Neon.Cyan else Neon.Muted, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                            Spacer(Modifier.width(12.dp))
+                            Text(b.title, color = if (watched == 2) Neon.Muted else Neon.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            if (isNext) { Pill("next", Neon.Cyan); Spacer(Modifier.width(8.dp)) }
+                            Text("$watched/2", color = if (watched == 2) Neon.Green else Neon.Muted, fontSize = 12.sp)
+                        }
+                        if (expanded) listOf("pn" to pair.pn, "nc" to pair.chuck).forEach { (k, v) ->
+                            val seen = pair.key(k) in r.studyDone
+                            val vc = if (k == "pn") Neon.Cyan else Neon.Amber
+                            Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f).clickable { app.open(v.url) }) {
+                                    Text(v.title, color = if (seen) Neon.Muted else Neon.Text, fontSize = 14.sp)
+                                    Text(if (k == "pn") "Practical Networking · learn it" else "NetworkChuck · make it stick", color = vc, fontSize = 12.sp)
+                                }
+                                OutlinedButton(onClick = { app.open(v.url) }) { Text("Watch", color = vc) }
+                                Spacer(Modifier.width(10.dp))
+                                CheckBubble(seen, false, vc, 28.dp) { app.change { Videos.toggle(it, pair.key(k)) } }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item { Label("Later: SOC + A+", Neon.Violet) }
         items(Videos.creators) { c ->
             Panel(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(20.dp)) {

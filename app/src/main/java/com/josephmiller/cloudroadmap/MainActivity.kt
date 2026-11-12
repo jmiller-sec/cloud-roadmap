@@ -39,6 +39,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -1277,7 +1278,20 @@ private fun VideosTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) 
     val ctx = LocalContext.current
     val vids = r.findings.reversed().filter { r.tabOf(it) == "videos" }
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(14.dp)) {
-        item { ScreenHeader("Videos", "By creator · new uploads every Sunday", onSettings) }
+        item { ScreenHeader("Videos", "A pair for every lesson · watch on the commute", onSettings) }
+        item {
+            Panel(Modifier.fillMaxWidth().padding(vertical = 4.dp), glow = Neon.Cyan.copy(alpha = 0.4f)) {
+                Column(Modifier.padding(14.dp)) {
+                    Text("When to watch", color = Neon.Cyan, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("① Before: Practical Networking on the commute to work, the morning of that lesson.", color = Neon.Text, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+                    Text("② After: NetworkChuck on the ride home or your next day off, to lock it in.", color = Neon.Text, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+                    Text("Not during: it eats your 2-hour study cap.", color = Neon.Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                }
+            }
+        }
+        item { SectionLabel("CS1015 LESSONS · LEARN IT, THEN MAKE IT STICK") }
+        item(key = "lessons") { LessonVideos(r, change) }
+        item { SectionLabel("LATER: SOC + A+", Neon.Violet) }
         Videos.creators.forEachIndexed { i, c ->
             val color = creatorColors[i % creatorColors.size]
             val mine = vids.filter { Videos.creatorOf(it) == c }
@@ -1449,6 +1463,50 @@ private fun ProjectsTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit
             }
         }
         item { Spacer(Modifier.height(20.dp)) }
+    }
+}
+
+@Composable
+private fun LessonVideos(r: Roadmap, change: ((Roadmap) -> Unit) -> Unit) {
+    val ctx = LocalContext.current
+    val nextN = Bundles.next(r).firstOrNull()?.n
+    val open = remember { mutableStateMapOf<Int, Boolean>() }
+    Column {
+        Bundles.all.forEach { b ->
+            val pair = Videos.lessonByBundle[b.n] ?: return@forEach
+            val watched = listOf("pn", "nc").count { pair.key(it) in r.studyDone }
+            val isNext = b.n == nextN
+            val expanded = open[b.n] ?: isNext
+            val c = if (watched == 2) Neon.Green else if (isNext) Neon.Cyan else Neon.Muted
+            Panel(Modifier.fillMaxWidth().padding(vertical = 4.dp).animateContentSize(), glow = if (isNext) Neon.Cyan.copy(alpha = 0.6f) else Neon.Line) {
+                Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                    Row(Modifier.fillMaxWidth().clickable { open[b.n] = !expanded }, verticalAlignment = Alignment.CenterVertically) {
+                        Text("%02d".format(b.n), color = c, fontFamily = Mono, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(b.title, color = if (watched == 2) Neon.Muted else Neon.Text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                        if (isNext) { Pill("NEXT", Neon.Cyan); Spacer(Modifier.width(6.dp)) }
+                        Text("$watched/2", color = c, fontFamily = Mono, fontSize = 11.sp)
+                    }
+                    if (expanded) listOf("pn" to pair.pn, "nc" to pair.chuck).forEach { (k, v) ->
+                        val seen = pair.key(k) in r.studyDone
+                        val vc = if (k == "pn") Neon.Cyan else Neon.Amber
+                        Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                Modifier.size(22.dp).clip(CircleShape).background(if (seen) vc else Color.Transparent).border(1.5.dp, vc, CircleShape)
+                                    .clickable { change { Videos.toggle(it, pair.key(k)) } },
+                                contentAlignment = Alignment.Center,
+                            ) { if (seen) Icon(Icons.Filled.Check, null, tint = Neon.Bg, modifier = Modifier.size(14.dp)) }
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f).clickable { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(v.url))) } }) {
+                                Text(v.title, color = if (seen) Neon.Muted else Neon.Text, fontSize = 13.sp)
+                                Text(if (k == "pn") "Practical Networking · learn it" else "NetworkChuck · make it stick", color = vc, fontSize = 11.sp, fontFamily = Mono)
+                            }
+                            Icon(Icons.Filled.PlayArrow, "Play", tint = vc, modifier = Modifier.size(20.dp).clickable { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(v.url))) } })
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1901,7 +1959,7 @@ private fun SettingsTab(r: Roadmap, today: LocalDate, refresh: () -> Unit, chang
                     Store.save(ctx, Roadmap(credlyUser = r.credlyUser, feedUrl = r.feedUrl)); refresh(); status = "Plan reset."
                 }
             }
-            Text("CLOUD ROADMAP v4.9 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
+            Text("CLOUD ROADMAP v5.0 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
                 textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 18.dp))
         }
     }
