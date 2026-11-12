@@ -41,6 +41,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Star
@@ -339,6 +340,7 @@ fun AppContent(r: Roadmap, startTab: Int, refresh: () -> Unit, change: ((Roadmap
                     Triple("Videos", Icons.Filled.PlayArrow, newIn("videos")),
                     Triple("Jobs", Icons.Filled.Build, newIn("jobs")),
                     Triple("WGU", Icons.Filled.DateRange, newIn("wgu")),
+                    Triple("Gear", Icons.Filled.ShoppingCart, 0),
                 ).forEachIndexed { i, (label, icon, count) ->
                     NavigationBarItem(tab == i, { tab = i }, {
                         BadgedBox(badge = { if (count > 0) Badge(containerColor = Neon.Amber, contentColor = Color.Black) { Text("$count") } }) {
@@ -363,7 +365,8 @@ fun AppContent(r: Roadmap, startTab: Int, refresh: () -> Unit, change: ((Roadmap
                     2 -> ProjectsTab(r, today, change, openSettings)
                     3 -> VideosTab(r, today, change, openSettings)
                     4 -> JobsTab(r, today, change, openSettings)
-                    else -> WguTab(r, today, change, openSettings)
+                    5 -> WguTab(r, today, change, openSettings)
+                    else -> GearTab(r, change, openSettings)
                 } }
             }
         }
@@ -1420,6 +1423,33 @@ private fun ProjectsTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit
 }
 
 @Composable
+private fun GearTab(r: Roadmap, change: ((Roadmap) -> Unit) -> Unit, onSettings: () -> Unit) {
+    val withParts = Projects.all.filter { it.parts.isNotEmpty() }
+    val left = withParts.sumOf { Projects.partsLeftCost(r, it) }
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp)) {
+        item { ScreenHeader("Gear", "Shopping list · ~$$left left to buy", onSettings) }
+        item {
+            Panel(Modifier.fillMaxWidth().padding(vertical = 4.dp), glow = Neon.Amber.copy(alpha = 0.5f)) {
+                Text("Plan: one Prime Day order in July 2027, a couple of weeks before the build. Don't buy before the project unlocks.",
+                    color = Neon.Text, fontSize = 13.sp, modifier = Modifier.padding(14.dp))
+            }
+        }
+        withParts.forEach { p ->
+            item(key = p.id) {
+                val c = levelColor(p.level)
+                Panel(Modifier.fillMaxWidth().padding(vertical = 6.dp), glow = c.copy(alpha = 0.4f)) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text(p.title, color = Neon.Text, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Build target ${p.target}", color = Neon.Muted, fontSize = 11.sp, fontFamily = Mono)
+                        PartsList(r, p, c, change)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun PartsList(r: Roadmap, p: Project, c: Color, change: ((Roadmap) -> Unit) -> Unit) {
     if (p.parts.isEmpty()) return
     val ctx = LocalContext.current
@@ -1841,7 +1871,7 @@ private fun SettingsTab(r: Roadmap, today: LocalDate, refresh: () -> Unit, chang
                     Store.save(ctx, Roadmap(credlyUser = r.credlyUser, feedUrl = r.feedUrl)); refresh(); status = "Plan reset."
                 }
             }
-            Text("CLOUD ROADMAP v4.7 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
+            Text("CLOUD ROADMAP v4.8 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
                 textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 18.dp))
         }
     }

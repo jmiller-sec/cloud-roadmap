@@ -152,6 +152,51 @@ fun ProjectsScreen(app: AppState) {
     }
 }
 
+// ===================== Gear =====================
+@Composable
+fun GearScreen(app: AppState) {
+    @Suppress("UNUSED_VARIABLE") val t = app.tick
+    val r = app.r
+    val withParts = Projects.all.filter { it.parts.isNotEmpty() }
+    val left = withParts.sumOf { Projects.partsLeftCost(r, it) }
+    Page("Gear", "Shopping list · ~$$left left to buy") {
+        item {
+            Panel(Modifier.fillMaxWidth(), glow = Neon.Amber) {
+                Text("Plan: one Prime Day order in July 2027, a couple of weeks before the build. Don't buy before the project unlocks.",
+                    color = Neon.Text, fontSize = 14.sp, modifier = Modifier.padding(18.dp))
+            }
+        }
+        withParts.forEach { p ->
+            item {
+                Panel(Modifier.fillMaxWidth(), glow = Neon.Teal) {
+                    Column(Modifier.padding(18.dp)) {
+                        val got = p.parts.indices.count { Projects.partKey(p, it) in r.studyDone }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(p.title, color = Neon.Text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            Pill("$got/${p.parts.size} · ~$${Projects.partsLeftCost(r, p)} left", Neon.Teal)
+                        }
+                        Text("Build target ${p.target}", color = Neon.Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                        p.parts.forEachIndexed { n, part ->
+                            val have = Projects.partKey(p, n) in r.studyDone
+                            Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f).clickable { app.open(part.url) }) {
+                                    Text(part.name, color = if (have) Neon.Muted else Neon.Text, fontSize = 14.sp)
+                                    Text(part.why, color = Neon.Muted, fontSize = 12.sp)
+                                    if (part.buy.isNotBlank() && !have) Text("When to buy: ${part.buy}", color = Neon.Teal, fontSize = 12.sp)
+                                }
+                                Text("$${part.price}", color = if (have) Neon.Muted else Neon.Teal, fontSize = 14.sp)
+                                Spacer(Modifier.width(12.dp))
+                                CheckBubble(have, false, Neon.Teal, 30.dp) { app.change { Projects.togglePart(it, p, n) } }
+                            }
+                        }
+                        Text("Click an item to look it up. Prices are estimates.", color = Neon.Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ===================== Videos =====================
 @Composable
 fun VideosScreen(app: AppState) {

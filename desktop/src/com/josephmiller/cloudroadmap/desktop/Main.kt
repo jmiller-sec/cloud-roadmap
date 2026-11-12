@@ -38,6 +38,7 @@ val dayFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE, MMM d")
 enum class Tab(val label: String, val icon: ImageVector) {
     WTD("WTD", Icons.Filled.TaskAlt), ROADMAP("Roadmap", Icons.Filled.Route), PROJECTS("Projects", Icons.Filled.Build),
     VIDEOS("Videos", Icons.Filled.PlayCircle), JOBS("Jobs", Icons.Filled.Work), WGU("WGU", Icons.Filled.School),
+    GEAR("Gear", Icons.Filled.ShoppingCart),
     UPDATES("Updates", Icons.Filled.Notifications), SETTINGS("Settings", Icons.Filled.Settings),
 }
 
@@ -71,6 +72,7 @@ fun Shell(app: AppState, hide: (Boolean) -> Unit, start: Tab = Tab.WTD) {
                         Tab.VIDEOS -> VideosScreen(app)
                         Tab.JOBS -> FindingsScreen(app, "jobs", "Jobs", "Help desk and IT openings the weekly check found.")
                         Tab.WGU -> WguScreen(app)
+                        Tab.GEAR -> GearScreen(app)
                         Tab.UPDATES -> FindingsScreen(app, "other", "Updates", "Cert, price and resource news from the weekly checks.")
                         Tab.SETTINGS -> SettingsScreen(app)
                     }
