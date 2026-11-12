@@ -52,6 +52,17 @@ object Projects {
                 "Link your 4 lab write-ups from it",
                 "Pin the 4 lab repos and put the link on your resume and LinkedIn",
             )),
+        Project("lab_fw", "Beginner", "Home firewall (OPNsense)",
+            "Fixes your real lag (2 ms ping jumps to 177 ms when the house is busy) and proves firewall, NAT and VLAN skills.", "Aug 7",
+            listOf(
+                "Save your before tests: Wi-Fi 52/47 (8 → 39 ms) and wired 370/370 (2 → 177 ms loaded)",
+                "Get the gear: mini PC with 2+ Intel ports, TL-SG105E switch, U7 Pro + PoE+ injector",
+                "Install OPNsense behind the AT&T gateway, just for your room (WAN to AT&T, LAN to your switch)",
+                "Fix PS5 NAT with UPnP or port forwards; confirm NAT Type 2 in PS5 network test",
+                "Turn on traffic shaping (SQM at ~330/330); rerun fast.com wired, goal: loaded ping under 20 ms",
+                "Split networks with VLANs (gaming, lab, guest) and write the firewall rules between them",
+                "Write it up on GitHub with before/after screenshots and a network diagram",
+            )),
 
         // ---------------- MEDIUM: SOC analyst skills (2027) ----------------
         Project("p_phish", "Medium", "Phishing investigation write-ups",
