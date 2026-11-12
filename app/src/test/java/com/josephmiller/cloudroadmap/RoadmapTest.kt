@@ -166,6 +166,17 @@ class RoadmapTest {
         assertEquals("p_phish", StudyPlan.nextLabStep(r)!!.itemId)
     }
 
+    @Test fun firewallGearListTracksWhatsLeft() {
+        val r = Roadmap(); val fw = Projects.byId["lab_fw"]!!
+        val total = fw.parts.sumOf { it.price }
+        assertEquals(total, Projects.partsLeftCost(r, fw))
+        Projects.togglePart(r, fw, 1)
+        assertEquals(total - fw.parts[1].price, Projects.partsLeftCost(r, fw))
+        Projects.togglePart(r, fw, 1)
+        assertEquals(total, Projects.partsLeftCost(r, fw))
+        assertEquals(Roadmap.fromJson(r.toJson()).studyDone.contains("part:lab_fw:1"), false)
+    }
+
     @Test fun wguFeedFlagsAddedAndRemovedCourses() {
         val r = Roadmap()
         val list = WguPlan.baseline().filter { it.name != "Version Control" }.map { """{"name":"${it.name}","cu":${it.cu},"term":${it.term}}""" } +

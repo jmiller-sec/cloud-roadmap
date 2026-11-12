@@ -8,7 +8,13 @@ class Project(
     val why: String,
     val target: String,
     val steps: List<String>,
+    val parts: List<Part> = emptyList(),
 )
+
+/** A thing to buy for a project. Checked off with key "part:<projectId>:<n>". */
+class Part(val name: String, val price: Int, val why: String, val search: String, val buy: String = "") {
+    val url get() = "https://www.amazon.com/s?k=" + java.net.URLEncoder.encode(search, "UTF-8")
+}
 
 /** Ordered by importance: do #1 first, work down to Expert. */
 object Projects {
@@ -62,6 +68,20 @@ object Projects {
                 "Turn on traffic shaping (SQM at ~330/330); rerun fast.com wired, goal: loaded ping under 20 ms",
                 "Split networks with VLANs (gaming, lab, guest) and write the firewall rules between them",
                 "Write it up on GitHub with before/after screenshots and a network diagram",
+            ),
+            parts = listOf(
+                Part("Mini PC: Intel N100, 2+ Intel i226 2.5G ports", 165, "Runs OPNsense; fast enough for traffic shaping at 370 Mbps", "N100 mini PC 4 port i226 2.5G firewall",
+                    "Prime Day (mid-July 2027), often $20-40 off. Backup: Amazon Big Spring Sale (March)"),
+                Part("Ubiquiti U7 Pro (Wi-Fi 7 access point)", 189, "Fixes your room Wi-Fi (52 vs 370 wired)", "Ubiquiti U7 Pro",
+                    "Rarely on sale; price is set by Ubiquiti. Buy in July, right before the build"),
+                Part("TP-Link TL-SG105PE switch (PoE+)", 50, "Powers the U7 Pro over the cable and does VLANs; no injector needed", "TP-Link TL-SG105PE",
+                    "Prime Day (July 2027), often ~$10 off"),
+                Part("Cat6 cables (pack of 5, short)", 15, "Mini PC, switch, PS5, PC, access point", "Cat6 ethernet cable 5 pack 3ft",
+                    "Anytime; prices barely move. Add to the Prime Day order"),
+                Part("Long Cat6 cable (AT&T box to your room)", 15, "Only if the gateway isn't in your room; measure first", "Cat6 ethernet cable 50ft flat",
+                    "Anytime; only after you measure the run"),
+                Part("USB flash drive, 8 GB+", 8, "To install OPNsense on the mini PC", "USB flash drive 16GB",
+                    "Anytime, or use one you already have"),
             )),
 
         // ---------------- MEDIUM: SOC analyst skills (2027) ----------------
@@ -155,6 +175,12 @@ object Projects {
 
     val byId = all.associateBy { it.id }
     val steps: Map<String, List<String>> = all.associate { it.id to it.steps }
+
+    fun partKey(p: Project, n: Int) = "part:${p.id}:$n"
+    fun partsLeftCost(r: Roadmap, p: Project) = p.parts.indices.filter { partKey(p, it) !in r.studyDone }.sumOf { p.parts[it].price }
+    fun togglePart(r: Roadmap, p: Project, n: Int) {
+        val k = partKey(p, n); if (k in r.studyDone) r.studyDone.remove(k) else r.studyDone.add(k)
+    }
 
     fun doneSteps(r: Roadmap, p: Project) = p.steps.indices.count { "lab:${p.id}:$it" in r.studyDone }
 

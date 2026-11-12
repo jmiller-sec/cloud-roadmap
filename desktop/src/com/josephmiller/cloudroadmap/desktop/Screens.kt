@@ -122,6 +122,27 @@ fun ProjectsScreen(app: AppState) {
                                         CheckBubble(sd, lock != null, Neon.Violet, 32.dp) { if (lock == null || sd) app.change { it.toggleTask(task, today) } }
                                     }
                                 }
+                                if (p.parts.isNotEmpty()) {
+                                    val got = p.parts.indices.count { Projects.partKey(p, it) in r.studyDone }
+                                    Row(Modifier.fillMaxWidth().padding(top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text("GEAR LIST · $got/${p.parts.size}", color = Neon.Teal, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                        Text("~$${Projects.partsLeftCost(r, p)} left", color = Neon.Muted, fontSize = 11.sp)
+                                    }
+                                    p.parts.forEachIndexed { n, part ->
+                                        val have = Projects.partKey(p, n) in r.studyDone
+                                        Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Column(Modifier.weight(1f).clickable { app.open(part.url) }) {
+                                                Text(part.name, color = if (have) Neon.Muted else Neon.Text, fontSize = 13.sp)
+                                                Text(part.why, color = Neon.Muted, fontSize = 11.sp)
+                                                if (part.buy.isNotBlank() && !have) Text("When to buy: ${part.buy}", color = Neon.Teal, fontSize = 11.sp)
+                                            }
+                                            Text("$${part.price}", color = if (have) Neon.Muted else Neon.Teal, fontSize = 13.sp)
+                                            Spacer(Modifier.width(10.dp))
+                                            CheckBubble(have, false, Neon.Teal, 28.dp) { app.change { Projects.togglePart(it, p, n) } }
+                                        }
+                                    }
+                                    Text("Click an item to look it up. Prices are estimates. Don't buy before the project unlocks.", color = Neon.Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 8.dp))
+                                }
                             }
                         }
                     }

@@ -1390,6 +1390,7 @@ private fun ProjectsTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit
                         if (expanded && locked) {
                             Text(p.why, color = Neon.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
                             Text("Steps unlock when you finish ${current?.title}.", color = Neon.Muted, fontSize = 12.sp, fontFamily = Mono, modifier = Modifier.padding(top = 6.dp))
+                            PartsList(r, p, c, change)
                         } else if (expanded) {
                             Text(p.why, color = Neon.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
                             p.steps.forEachIndexed { n, step ->
@@ -1408,6 +1409,7 @@ private fun ProjectsTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit
                                     Text("${n + 1}. $step", color = if (sd) Neon.Muted else Neon.Text, fontSize = 13.sp)
                                 }
                             }
+                            PartsList(r, p, c, change)
                         }
                     }
                 }
@@ -1415,6 +1417,36 @@ private fun ProjectsTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit
         }
         item { Spacer(Modifier.height(20.dp)) }
     }
+}
+
+@Composable
+private fun PartsList(r: Roadmap, p: Project, c: Color, change: ((Roadmap) -> Unit) -> Unit) {
+    if (p.parts.isEmpty()) return
+    val ctx = LocalContext.current
+    val got = p.parts.indices.count { Projects.partKey(p, it) in r.studyDone }
+    Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("GEAR LIST · $got/${p.parts.size}", color = c, fontSize = 11.sp, fontFamily = Mono, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Text("~$${Projects.partsLeftCost(r, p)} left", color = Neon.Muted, fontSize = 11.sp, fontFamily = Mono)
+    }
+    p.parts.forEachIndexed { n, part ->
+        val have = Projects.partKey(p, n) in r.studyDone
+        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(22.dp).clip(RoundedCornerShape(6.dp)).background(if (have) c else Color.Transparent)
+                    .border(1.5.dp, c, RoundedCornerShape(6.dp))
+                    .clickable { change { Projects.togglePart(it, p, n) } },
+                contentAlignment = Alignment.Center,
+            ) { if (have) Icon(Icons.Filled.Check, null, tint = Neon.Bg, modifier = Modifier.size(14.dp)) }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f).clickable { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(part.url))) } }) {
+                Text(part.name, color = if (have) Neon.Muted else Neon.Text, fontSize = 13.sp)
+                Text(part.why, color = Neon.Muted, fontSize = 11.sp)
+                if (part.buy.isNotBlank() && !have) Text("When to buy: ${part.buy}", color = c.copy(alpha = 0.85f), fontSize = 11.sp, fontFamily = Mono)
+            }
+            Text("$${part.price}", color = if (have) Neon.Muted else c, fontSize = 12.sp, fontFamily = Mono)
+        }
+    }
+    Text("Tap an item to look it up. Prices are estimates. Don't buy before the project unlocks.", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono, modifier = Modifier.padding(top = 2.dp))
 }
 
 // ---------- badges ----------
@@ -1809,7 +1841,7 @@ private fun SettingsTab(r: Roadmap, today: LocalDate, refresh: () -> Unit, chang
                     Store.save(ctx, Roadmap(credlyUser = r.credlyUser, feedUrl = r.feedUrl)); refresh(); status = "Plan reset."
                 }
             }
-            Text("CLOUD ROADMAP v4.6 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
+            Text("CLOUD ROADMAP v4.7 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
                 textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 18.dp))
         }
     }
