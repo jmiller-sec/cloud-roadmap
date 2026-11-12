@@ -180,9 +180,9 @@ fun WtdWide(app: AppState, hide: (Boolean) -> Unit) {
                 Pill("CS1015 ${Bundles.done(r)}/${Bundles.all.size}", Neon.Green)
             }
             AnimatedVisibility(app.update != null) {
-                app.update?.let { (tag, url) ->
-                    Panel(Modifier.fillMaxWidth().padding(bottom = 14.dp).clickable { app.open(url) }, glow = Neon.Green) {
-                        Text("✨ Update $tag is ready. Click to download.", color = Neon.Green, modifier = Modifier.padding(14.dp))
+                app.update?.let { (tag, _) ->
+                    Panel(Modifier.fillMaxWidth().padding(bottom = 14.dp).clickable { app.installUpdate { kotlin.system.exitProcess(0) } }, glow = Neon.Green) {
+                        Text(app.updating ?: "✨ Update $tag is ready. Click to update (the app closes, updates, and reopens).", color = Neon.Green, modifier = Modifier.padding(14.dp))
                     }
                 }
             }

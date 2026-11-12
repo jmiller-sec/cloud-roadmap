@@ -90,6 +90,39 @@ object Cloud {
     }
 }
 
+/** One-tap phone updates: downloads apk/CloudRoadmap.apk from the private repo and opens Android's installer. */
+object Updater {
+    fun installedCode(ctx: Context): Long = runCatching {
+        val pi = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
+        if (Build.VERSION.SDK_INT >= 28) pi.longVersionCode else @Suppress("DEPRECATION") pi.versionCode.toLong()
+    }.getOrDefault(0L)
+
+    /** Blocking. Returns the newer version, or null. */
+    fun check(ctx: Context): AppUpdate.Apk? {
+        val t = Cloud.token(ctx); if (t.isBlank()) return null
+        val a = AppUpdate.latestApk(t) ?: return null
+        return if (a.versionCode > installedCode(ctx)) a else null
+    }
+
+    /** Blocking download, then hands the file to Android's installer (one "Update" tap). */
+    fun install(ctx: Context): String {
+        val pm = ctx.packageManager
+        if (Build.VERSION.SDK_INT >= 26 && !pm.canRequestPackageInstalls()) {
+            ctx.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${ctx.packageName}"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            return "Turn on \"Allow from this source\", then come back and tap Update again"
+        }
+        return runCatching {
+            val f = java.io.File(ctx.cacheDir, "updates/CloudRoadmap.apk")
+            AppUpdate.downloadApk(Cloud.token(ctx), f)
+            val uri = androidx.core.content.FileProvider.getUriForFile(ctx, "${ctx.packageName}.updates", f)
+            ctx.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK))
+            "Tap Update on the next screen"
+        }.getOrElse { "Update failed: ${it.message}" }
+    }
+}
+
 /** Progress backup to a file Joseph picks (Drive, Downloads...). Android also backs up the app to his Google account. */
 object Backup {
     private const val P = "backup"

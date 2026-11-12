@@ -323,7 +323,23 @@ fun AppContent(r: Roadmap, startTab: Int, refresh: () -> Unit, change: ((Roadmap
             }
         }
     }
-    CompositionLocalProvider(LocalHeaderActions provides HeaderActions(updatesCount, doSync, syncing) { showUpdates = true }) {
+    var apkUpdate by remember { mutableStateOf<AppUpdate.Apk?>(null) }
+    var updating by remember { mutableStateOf(false) }
+    LaunchedEffect(r) {
+        apkUpdate = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { Updater.check(ctx) }.getOrNull() }
+    }
+    val doUpdate: () -> Unit = {
+        if (!updating) {
+            updating = true
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                val msg = Updater.install(ctx)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    updating = false; android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+    CompositionLocalProvider(LocalHeaderActions provides HeaderActions(updatesCount, doSync, syncing, apkUpdate?.versionName, doUpdate, updating) { showUpdates = true }) {
     Scaffold(
         containerColor = Neon.Bg,
         bottomBar = {
@@ -374,7 +390,11 @@ fun AppContent(r: Roadmap, startTab: Int, refresh: () -> Unit, change: ((Roadmap
     }
 }
 
-class HeaderActions(val updatesCount: Int, val sync: () -> Unit = {}, val syncing: Boolean = false, val openUpdates: () -> Unit)
+class HeaderActions(
+    val updatesCount: Int, val sync: () -> Unit = {}, val syncing: Boolean = false,
+    val appUpdate: String? = null, val installUpdate: () -> Unit = {}, val installing: Boolean = false,
+    val openUpdates: () -> Unit,
+)
 val LocalHeaderActions = staticCompositionLocalOf { HeaderActions(0) {} }
 
 @Composable
@@ -394,6 +414,16 @@ private fun ScreenHeader(title: String, subtitle: String, onSettings: () -> Unit
             }
         }
         IconButton(onSettings) { Icon(Icons.Filled.Settings, "Settings", tint = Neon.Muted) }
+    }
+    androidx.compose.animation.AnimatedVisibility(h.appUpdate != null) {
+        val pulse by rememberInfiniteTransition().animateFloat(0.45f, 0.9f, infiniteRepeatable(tween(1100), androidx.compose.animation.core.RepeatMode.Reverse))
+        Panel(Modifier.fillMaxWidth().padding(bottom = 12.dp).clickable(enabled = !h.installing) { h.installUpdate() }, glow = Neon.Green.copy(alpha = pulse)) {
+            Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (h.installing) "Downloading v${h.appUpdate}..." else "✨ v${h.appUpdate} is ready. Tap to update.",
+                    color = Neon.Green, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Pill(if (h.installing) "…" else "UPDATE", Neon.Green)
+            }
+        }
     }
 }
 
@@ -1871,7 +1901,7 @@ private fun SettingsTab(r: Roadmap, today: LocalDate, refresh: () -> Unit, chang
                     Store.save(ctx, Roadmap(credlyUser = r.credlyUser, feedUrl = r.feedUrl)); refresh(); status = "Plan reset."
                 }
             }
-            Text("CLOUD ROADMAP v4.8 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
+            Text("CLOUD ROADMAP v4.9 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
                 textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 18.dp))
         }
     }

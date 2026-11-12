@@ -96,3 +96,67 @@ object CloudSync {
         error("Sync conflict, try again")
     }
 }
+
+
+/** In-app updates from the private repo: phone APK in apk/, Windows MSI in Releases. */
+object AppUpdate {
+    class Apk(val versionCode: Int, val versionName: String)
+    class Msi(val version: String, val assetApi: String, val name: String)
+
+    private fun api(url: String, token: String, accept: String = "application/vnd.github+json"): HttpURLConnection =
+        (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 15000; readTimeout = 60000; instanceFollowRedirects = false
+            setRequestProperty("Authorization", "Bearer $token")
+            setRequestProperty("Accept", accept)
+            setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
+        }
+
+    /** apk/version.json: {"versionCode":33,"versionName":"4.9"} */
+    fun latestApk(token: String, repo: String = CloudSync.DEFAULT_REPO): Apk? = runCatching {
+        val c = api("https://api.github.com/repos/$repo/contents/apk/version.json", token, "application/vnd.github.raw")
+        if (c.responseCode != 200) return null
+        val o = JSONObject(c.inputStream.bufferedReader().readText())
+        Apk(o.getInt("versionCode"), o.getString("versionName"))
+    }.getOrNull()
+
+    fun latestMsi(token: String, repo: String = CloudSync.DEFAULT_REPO): Msi? = runCatching {
+        val c = api("https://api.github.com/repos/$repo/releases/latest", token)
+        if (c.responseCode != 200) return null
+        val o = JSONObject(c.inputStream.bufferedReader().readText())
+        val assets = o.getJSONArray("assets")
+        val a = (0 until assets.length()).map { assets.getJSONObject(it) }.firstOrNull { it.getString("name").endsWith(".msi") } ?: return null
+        Msi(o.getString("tag_name").removePrefix("v"), a.getString("url"), a.getString("name"))
+    }.getOrNull()
+
+    fun downloadApk(token: String, dest: java.io.File, repo: String = CloudSync.DEFAULT_REPO) =
+        save(api("https://api.github.com/repos/$repo/contents/apk/CloudRoadmap.apk", token, "application/vnd.github.raw"), dest)
+
+    fun downloadMsi(token: String, m: Msi, dest: java.io.File) =
+        save(api(m.assetApi, token, "application/octet-stream"), dest)
+
+    /** Follows GitHub's redirect to its file storage without sending the token there. */
+    private fun save(first: HttpURLConnection, dest: java.io.File) {
+        var c = first
+        repeat(5) {
+            val code = c.responseCode
+            if (code in 300..399) {
+                val loc = c.getHeaderField("Location") ?: error("Bad redirect")
+                c = (URL(loc).openConnection() as HttpURLConnection).apply { connectTimeout = 15000; readTimeout = 60000 }
+                return@repeat
+            }
+            if (code != 200) error("GitHub said $code")
+            dest.parentFile?.mkdirs()
+            val tmp = java.io.File(dest.path + ".part")
+            c.inputStream.use { i -> tmp.outputStream().use { o -> i.copyTo(o) } }
+            if (!tmp.renameTo(dest)) { dest.delete(); tmp.renameTo(dest) }
+            return
+        }
+        error("Too many redirects")
+    }
+
+    fun newer(a: String, b: String): Boolean {
+        val x = a.split(".").map { it.toIntOrNull() ?: 0 }; val y = b.split(".").map { it.toIntOrNull() ?: 0 }
+        for (i in 0 until maxOf(x.size, y.size)) { val d = x.getOrElse(i) { 0 } - y.getOrElse(i) { 0 }; if (d != 0) return d > 0 }
+        return false
+    }
+}

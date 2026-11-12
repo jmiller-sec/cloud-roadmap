@@ -150,22 +150,40 @@ class AppState {
     }
 
     // ---------- updates ----------
-    private fun checkUpdate() {
+    var updating by mutableStateOf<String?>(null)
+    private var msi: AppUpdate.Msi? = null
+
+    fun checkUpdate() {
         val t = token(); if (t.isBlank()) return
-        runCatching {
-            val c = (URL("https://api.github.com/repos/${CloudSync.DEFAULT_REPO}/releases/latest").openConnection() as HttpURLConnection).apply {
-                setRequestProperty("Authorization", "Bearer $t"); setRequestProperty("Accept", "application/vnd.github+json")
-            }
-            if (c.responseCode != 200) return
-            val o = JSONObject(c.inputStream.bufferedReader().readText())
-            val tag = o.getString("tag_name").removePrefix("v")
-            if (newer(tag, version)) update = tag to o.getString("html_url")
-        }
+        val m = AppUpdate.latestMsi(t) ?: return
+        if (AppUpdate.newer(m.version, version)) { msi = m; update = m.version to "" }
     }
 
-    private fun newer(a: String, b: String): Boolean {
-        val x = a.split(".").map { it.toIntOrNull() ?: 0 }; val y = b.split(".").map { it.toIntOrNull() ?: 0 }
-        for (i in 0 until maxOf(x.size, y.size)) { val d = (x.getOrElse(i) { 0 }) - (y.getOrElse(i) { 0 }); if (d != 0) return d > 0 }
-        return false
+    /** One click: download the new installer, close, install over this version, reopen. Data in ~/.cloudroadmap stays. */
+    fun installUpdate(exit: () -> Unit) {
+        val m = msi ?: return
+        if (updating != null) return
+        updating = "Downloading ${m.version}..."
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                val dir = File(System.getProperty("java.io.tmpdir"), "CloudRoadmapUpdate")
+                val file = File(dir, m.name)
+                AppUpdate.downloadMsi(token(), m, file)
+                val exe = ProcessHandle.current().info().command().orElse("")
+                val bat = File(dir, "update.bat")
+                bat.writeText(buildString {
+                    appendLine("@echo off")
+                    appendLine("timeout /t 2 /nobreak >nul")
+                    appendLine("msiexec /i \"${file.absolutePath}\" /passive /norestart")
+                    if (exe.endsWith(".exe", true) && !exe.endsWith("java.exe", true) && !exe.endsWith("javaw.exe", true))
+                        appendLine("start \"\" \"$exe\"")
+                })
+                ProcessBuilder("cmd", "/c", "start", "\"\"", "/min", bat.absolutePath).start()
+            }.onSuccess {
+                withContext(Dispatchers.Main) { exit() }
+            }.onFailure {
+                withContext(Dispatchers.Main) { updating = null; notify("Update failed", it.message ?: "") }
+            }
+        }
     }
 }

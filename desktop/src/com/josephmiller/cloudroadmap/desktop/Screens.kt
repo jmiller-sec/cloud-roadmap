@@ -300,6 +300,23 @@ fun SettingsScreen(app: AppState) {
             }
         }
         item {
+            var checking by remember { mutableStateOf(false) }
+            Panel(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Label("App updates", Neon.Green)
+                    val up = app.update
+                    Text(
+                        app.updating ?: if (up != null) "Version ${up.first} is ready." else if (checking) "Checking..." else "You're on the latest version (v${app.version}). It checks every hour on its own.",
+                        color = if (up != null) Neon.Green else Neon.Muted, fontSize = 13.sp,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (up != null) Button(onClick = { app.installUpdate { kotlin.system.exitProcess(0) } }, enabled = app.updating == null) { Text("Update now") }
+                        OutlinedButton(onClick = { checking = true; scope.launch(kotlinx.coroutines.Dispatchers.IO) { app.checkUpdate(); checking = false } }) { Text("Check for updates") }
+                    }
+                }
+            }
+        }
+        item {
             Panel(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Label("Screenshots", Neon.Amber)
