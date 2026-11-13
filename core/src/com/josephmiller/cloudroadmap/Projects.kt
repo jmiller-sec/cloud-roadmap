@@ -77,6 +77,8 @@ object Projects {
                     "Almost never on sale; buy in July, right before the build"),
                 Part("TP-Link TL-SG105PE switch (5-port, PoE+, VLANs)", 50, "Powers the U7 Pro through the cable and connects the mini PC, PS5 and PC", "TP-Link TL-SG105PE",
                     "Prime Day (July 2027), often ~$10 off"),
+                Part("Cat6 cable, 15 ft (switch up to the U7 Pro)", 10, "A 3 ft cable won't reach the top of a wardrobe. Measure the switch-to-shelf run", "Cat6 ethernet cable 15ft flat",
+                    "Anytime; add to the Prime Day order"),
                 Part("Cat6 cables (pack of 5, short)", 15, "Mini PC, switch, Wi-Fi box, PS5, PC", "Cat6 ethernet cable 5 pack 3ft",
                     "Anytime; prices barely move. Add to the Prime Day order"),
                 Part("New long Cat6 (AT&T box to your room)", 20, "Replaces your old long cable. Measure the run first and add 10 ft; flat cable slides under doors", "Cat6 ethernet cable flat 50ft",

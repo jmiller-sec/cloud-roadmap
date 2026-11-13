@@ -24,6 +24,31 @@ class BurnoutTest {
         assertTrue(Bundles.all.drop(1).all { it.sections.first().id == "warm" })
     }
 
+    @Test fun sleepOnlyLightensTheDay() {
+        val r = Roadmap()
+        val tue = d("2026-12-08"); val sat = d("2026-12-12")
+        assertEquals(1, Burnout.bundlesFor(r, tue)); assertEquals(120, Burnout.capMin(tue, r))
+        r.sleep[tue.toString()] = 400   // 6h40: short
+        assertEquals(1, Burnout.bundlesFor(r, tue)); assertEquals(90, Burnout.capMin(tue, r))
+        r.sleep[tue.toString()] = 300   // 5h: low -> videos + quiz only
+        assertEquals(0, Burnout.bundlesFor(r, tue))
+        assertTrue(Burnout.sleepNote(r, tue)!!.contains("light night"))
+        r.sleep[sat.toString()] = 400; assertEquals(2, Burnout.bundlesFor(r, sat)); assertEquals(360, Burnout.capMin(sat, r))
+        r.sleep[sat.toString()] = 300; assertEquals(1, Burnout.bundlesFor(r, sat))
+        r.sleep[sat.toString()] = 480; assertEquals(3, Burnout.bundlesFor(r, sat))
+        // Synced between devices.
+        assertEquals(480, Roadmap.fromJson(r.toJson()).sleep[sat.toString()])
+    }
+
+    @Test fun threeShortNightsInThreeWeeksInARowMeansRest() {
+        val r = Roadmap()
+        // Weeks ending Dec 5, Dec 12, Dec 19: three nights under 5h30 each.
+        listOf("2026-12-01","2026-12-02","2026-12-03","2026-12-08","2026-12-09","2026-12-10","2026-12-15","2026-12-16","2026-12-17").forEach { r.sleep[it] = 300 }
+        assertTrue(Burnout.isRestWeek(r, d("2027-01-05")).not()) // week of Dec 26 skipped, but week ending Jan 2 had no low nights
+        r.sleep["2026-12-29"] = 300; r.sleep["2026-12-30"] = 300; r.sleep["2026-12-31"] = 300
+        assertTrue(Burnout.isRestWeek(r, d("2027-01-05")))
+    }
+
     @Test fun missedDaysNeverStack() {
         val r = Roadmap()
         // Skip Tue + Thu entirely: Saturday still shows exactly 3, starting from bundle 1.

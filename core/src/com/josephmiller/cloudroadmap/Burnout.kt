@@ -31,7 +31,31 @@ object Burnout {
         else -> 0
     }
 
-    fun capMin(d: LocalDate, r: Roadmap) = baseCapMin(d) + if ("override:$d" in r.studyDone) OVERRIDE_MIN else 0
+    fun capMin(d: LocalDate, r: Roadmap): Int {
+        val base = if (sleepLevel(r, d) == Sleep.SHORT && d.dayOfWeek != DayOfWeek.SATURDAY) minOf(baseCapMin(d), 90) else baseCapMin(d)
+        return base + if ("override:$d" in r.studyDone) OVERRIDE_MIN else 0
+    }
+
+    // ---------- sleep ----------
+    enum class Sleep { GOOD, SHORT, LOW }
+    const val SLEEP_GOOD_MIN = 420   // 7 h
+    const val SLEEP_LOW_MIN = 330    // 5 h 30
+    fun sleepMin(r: Roadmap, d: LocalDate): Int? = r.sleep[d.toString()]
+    fun sleepLevel(r: Roadmap, d: LocalDate): Sleep? = sleepMin(r, d)?.let {
+        when { it >= SLEEP_GOOD_MIN -> Sleep.GOOD; it >= SLEEP_LOW_MIN -> Sleep.SHORT; else -> Sleep.LOW }
+    }
+    fun fmtSleep(min: Int) = "${min / 60}h ${"%02d".format(min % 60)}m"
+    /** One line for WTD explaining what last night's sleep did to today, or null when there's no data / no study. */
+    fun sleepNote(r: Roadmap, d: LocalDate): String? {
+        val m = sleepMin(r, d) ?: return null
+        if (!isStudyDay(d) || ThmPlan.isOffWeek(d)) return "Slept ${fmtSleep(m)}"
+        val sat = d.dayOfWeek == DayOfWeek.SATURDAY
+        return when (sleepLevel(r, d)!!) {
+            Sleep.GOOD -> "Slept ${fmtSleep(m)} · full plan today"
+            Sleep.SHORT -> if (sat) "Slept ${fmtSleep(m)} · Saturday drops to 2 bundles" else "Slept ${fmtSleep(m)} · cap is 90 min tonight"
+            Sleep.LOW -> if (sat) "Slept ${fmtSleep(m)} · just 1 bundle today" else "Slept ${fmtSleep(m)} · light night: lesson videos + quick check only"
+        }
+    }
 
     // ---------- energy ----------
     fun rating(r: Roadmap, d: LocalDate): Int? = r.energy[d.toString()]
@@ -47,7 +71,8 @@ object Burnout {
         val weeks = generateSequence(sat.minusWeeks(1)) { it.minusWeeks(1) }.take(12).filter { it !in ThmPlan.OFF }.take(3).toList()
         return weeks.size == 3 && weeks.all { wkSat ->
             val inWeek = all.filter { !it.first.isAfter(wkSat) && it.first.isAfter(wkSat.minusDays(7)) }.map { it.second }
-            inWeek.isNotEmpty() && inWeek.average() <= 2.0
+            val lowNights = r.sleep.count { (k, v) -> val day = LocalDate.parse(k); !day.isAfter(wkSat) && day.isAfter(wkSat.minusDays(7)) && v < SLEEP_LOW_MIN }
+            (inWeek.isNotEmpty() && inWeek.average() <= 2.0) || lowNights >= 3
         }
     }
 
@@ -63,11 +88,17 @@ object Burnout {
         if (ThmPlan.isOffWeek(d) || d.isBefore(BUNDLES_FROM)) return 0
         val m = mode(r, d)
         if (m == Mode.REST) return 0
-        return when (d.dayOfWeek) {
+        val base = when (d.dayOfWeek) {
             DayOfWeek.TUESDAY -> if (d.isBefore(JOB_NIGHTS_FROM)) 1 else 0
             DayOfWeek.THURSDAY -> 1
             DayOfWeek.SATURDAY -> if (m == Mode.B) 2 else 3
             else -> 0
+        }
+        // Last night's sleep can only make the day lighter, never heavier.
+        return when (sleepLevel(r, d)) {
+            Sleep.LOW -> if (d.dayOfWeek == DayOfWeek.SATURDAY) minOf(base, 1) else 0
+            Sleep.SHORT -> if (d.dayOfWeek == DayOfWeek.SATURDAY) minOf(base, 2) else base
+            else -> base
         }
     }
 

@@ -31,6 +31,8 @@ class Roadmap(
     var lastBackup: String = "",
     /** Energy check after each study day (yyyy-mm-dd -> 1..5). */
     val energy: MutableMap<String, Int> = mutableMapOf(),
+    /** Minutes slept, keyed by the date you woke up (from Health Connect: SnoozeFox or Samsung Health). */
+    val sleep: MutableMap<String, Int> = mutableMapOf(),
     /** Minutes studied per day, banked from the burnout timer. */
     val studyMin: MutableMap<String, Int> = mutableMapOf(),
     var timerStart: Long = 0,
@@ -75,6 +77,7 @@ class Roadmap(
                 lastBackup = o.optString("lastBackup"),
                 alertLog = o.optJSONObject("alertLog")?.let { a -> a.keys().asSequence().associateWith { k -> a.getInt(k) }.toMutableMap() } ?: mutableMapOf(),
                 energy = o.optJSONObject("energy")?.let { a -> a.keys().asSequence().associateWith { k -> a.getInt(k) }.toMutableMap() } ?: mutableMapOf(),
+                sleep = o.optJSONObject("sleep")?.let { a -> a.keys().asSequence().associateWith { k -> a.getInt(k) }.toMutableMap() } ?: mutableMapOf(),
                 studyMin = o.optJSONObject("studyMin")?.let { a -> a.keys().asSequence().associateWith { k -> a.getInt(k) }.toMutableMap() } ?: mutableMapOf(),
                 timerStart = o.optLong("timerStart"),
                 timerDay = o.optString("timerDay"),
@@ -104,6 +107,7 @@ class Roadmap(
         put("lastFeedSummary", lastFeedSummary); put("lastFeedDate", lastFeedDate)
         put("studyDone", JSONArray().apply { studyDone.sorted().forEach { put(it) } }); put("studyShift", studyShift)
         put("energy", JSONObject().apply { energy.forEach { (k, v) -> put(k, v) } })
+        put("sleep", JSONObject().apply { sleep.entries.sortedBy { it.key }.takeLast(120).forEach { (k, v) -> put(k, v) } })
         put("studyMin", JSONObject().apply { studyMin.forEach { (k, v) -> put(k, v) } })
         put("timerStart", timerStart); put("timerDay", timerDay); put("updatedAt", updatedAt)
         put("doneLog", JSONObject().apply { doneLog.forEach { (k, v) -> put(k, v) } })

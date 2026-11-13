@@ -37,6 +37,7 @@ object Merge {
         r.studyDone.setSilently(keys)
         // Per-day / per-bundle values: keep both; the newer save wins a clash. Minutes only ever grow.
         older.energy.forEach { (k, v) -> r.energy.putIfAbsent(k, v) }
+        older.sleep.forEach { (k, v) -> r.sleep[k] = maxOf(v, r.sleep[k] ?: 0) }
         older.portfolio.forEach { (k, v) -> r.portfolio.putIfAbsent(k, v) }
         older.studyMin.forEach { (k, v) -> r.studyMin[k] = maxOf(v, r.studyMin[k] ?: 0) }
         older.alertLog.forEach { (k, v) -> r.alertLog[k] = maxOf(v, r.alertLog[k] ?: 0) }

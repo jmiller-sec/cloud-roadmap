@@ -337,6 +337,10 @@ fun EnergyCard(app: AppState, today: LocalDate) {
     val cur = Burnout.rating(app.r, today)
     Panel(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp)) {
+            Burnout.sleepNote(app.r, today)?.let { note ->
+                Label("Last night · Galaxy Watch", Neon.Violet)
+                Text(note, color = Neon.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp, bottom = 16.dp))
+            }
             Label("Energy check")
             Text("How do you feel after today?", color = Neon.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp, bottom = 10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

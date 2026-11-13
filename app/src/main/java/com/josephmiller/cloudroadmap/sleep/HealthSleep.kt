@@ -61,6 +61,10 @@ object HealthSleep {
                     s.metadata.dataOrigin.packageName)
             }, zone).map { SleepAnalysis.night(it, zone) }
             state.value = State.Ready(nights.reversed(), SleepAnalysis.week(nights, zone))
+            // Hours slept per morning feed the study plan (Burnout.bundlesFor / capMin) and sync to the PC app.
+            val mins = nights.associate { it.date.toString() to it.asleepMin }
+            val r0 = com.josephmiller.cloudroadmap.Store.load(ctx)
+            if (mins.any { (k, v) -> r0.sleep[k] != v }) com.josephmiller.cloudroadmap.Store.edit(ctx) { r -> r.sleep.putAll(mins) }
         } catch (e: SecurityException) {
             state.value = State.NeedsPermission
         } catch (e: Exception) {

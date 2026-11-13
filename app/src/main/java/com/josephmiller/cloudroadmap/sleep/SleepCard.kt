@@ -26,7 +26,7 @@ import java.time.format.DateTimeFormatter
 
 /**
  * Last night's sleep from the Galaxy Watch (via Health Connect), shown on the WTD tab.
- * Display only for now; the study load does not change yet.
+ * Last night's hours also size today's study load (see Burnout.sleepNote).
  */
 @Composable
 fun SleepCard() {
@@ -66,6 +66,12 @@ fun SleepCard() {
                     Text("${tf.format(n.bedtime.atZone(z))} → ${tf.format(n.wake.atZone(z))}" +
                         (if (n.hasStages) " · deep ${SleepAnalysis.hm(n.deepMin)} · REM ${SleepAnalysis.hm(n.remMin)}" else "") +
                         " · woke ${n.wakeUps}×", color = muted, fontSize = 12.sp, fontFamily = mono)
+                    val today = java.time.LocalDate.now()
+                    if (n.date == today) {
+                        val r = com.josephmiller.cloudroadmap.Store.load(ctx)
+                        val note = com.josephmiller.cloudroadmap.Burnout.sleepNote(r, today)?.substringAfter(" · ", "")
+                        if (!note.isNullOrBlank()) Text("Today: $note", color = cyan, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
+                    } else Text("No sleep logged for last night yet, so today's plan is unchanged.", color = muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
                 }
             }
         }
@@ -79,9 +85,10 @@ class SleepPrivacyActivity : ComponentActivity() {
         setContent {
             Column(Modifier.fillMaxSize().background(Color(0xFF060B12)).systemBarsPadding().padding(28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text("Why Cloud Roadmap reads your sleep", color = Color(0xFFE6F1FF), fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                Text("It reads the sleep your Galaxy Watch saves to Health Connect and shows last night on the WTD tab. " +
-                    "Later it will use it to size each day's study load.", color = Color(0xFFE6F1FF), fontSize = 15.sp)
-                Text("Read only. Sleep data stays on this phone and is never synced to GitHub.", color = Color(0xFFE6F1FF), fontSize = 15.sp)
+                Text("It reads the sleep your Galaxy Watch saves to Health Connect, shows last night on the WTD tab, " +
+                    "and uses how long you slept to size that day's study load.", color = Color(0xFFE6F1FF), fontSize = 15.sp)
+                Text("Read only. Stages and times stay on this phone. Only the minutes you slept each night sync to your private " +
+                    "GitHub repo, so your PC plans the same day.", color = Color(0xFFE6F1FF), fontSize = 15.sp)
             }
         }
     }
