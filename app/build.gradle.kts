@@ -11,8 +11,8 @@ android {
         applicationId = "com.josephmiller.cloudroadmap"
         minSdk = 26
         targetSdk = 35
-        versionCode = 41
-        versionName = "5.7"
+        versionCode = 42
+        versionName = "5.8"
     }
     signingConfigs {
         create("jm") {

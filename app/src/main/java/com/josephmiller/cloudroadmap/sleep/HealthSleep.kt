@@ -28,6 +28,15 @@ object HealthSleep {
 
     val state = MutableStateFlow<State>(State.Loading)
 
+    /** Saves a short status line (no health values) so it syncs and can be checked from the PC side. */
+    private fun report(ctx: Context, msg: String) {
+        val line = "$msg @ ${java.time.LocalDateTime.now().withNano(0)}"
+        runCatching {
+            val r0 = com.josephmiller.cloudroadmap.Store.load(ctx)
+            if (r0.sleepStatus.substringBefore(" @ ") != msg) com.josephmiller.cloudroadmap.Store.edit(ctx) { it.sleepStatus = line }
+        }
+    }
+
     private fun stage(t: Int): Stage = when (t) {
         SleepSessionRecord.STAGE_TYPE_DEEP -> Stage.DEEP
         SleepSessionRecord.STAGE_TYPE_REM -> Stage.REM
@@ -44,10 +53,11 @@ object HealthSleep {
             .sortedBy { it.end }
 
     suspend fun refresh(ctx: Context, days: Long = 14, zone: ZoneId = ZoneId.systemDefault()) {
-        if (HealthConnectClient.getSdkStatus(ctx) != HealthConnectClient.SDK_AVAILABLE) { state.value = State.NotInstalled; return }
+        val sdk = HealthConnectClient.getSdkStatus(ctx)
+        if (sdk != HealthConnectClient.SDK_AVAILABLE) { state.value = State.NotInstalled; report(ctx, "health connect unavailable (sdk $sdk)"); return }
         try {
             val c = HealthConnectClient.getOrCreate(ctx)
-            if (!c.permissionController.getGrantedPermissions().containsAll(PERMISSIONS)) { state.value = State.NeedsPermission; return }
+            if (!c.permissionController.getGrantedPermissions().containsAll(PERMISSIONS)) { state.value = State.NeedsPermission; report(ctx, "needs permission"); return }
             if (state.value !is State.Ready) state.value = State.Loading
             val end = Instant.now(); val start = end.minus(Duration.ofDays(days))
             val recs = mutableListOf<SleepSessionRecord>()
@@ -61,14 +71,16 @@ object HealthSleep {
                     s.metadata.dataOrigin.packageName)
             }, zone).map { SleepAnalysis.night(it, zone) }
             state.value = State.Ready(nights.reversed(), SleepAnalysis.week(nights, zone))
+            val srcs = recs.map { it.metadata.dataOrigin.packageName }.distinct().joinToString(",").ifBlank { "none" }
+            report(ctx, "ready: ${recs.size} sessions, ${nights.size} nights, newest ${nights.lastOrNull()?.date ?: "-"}, from $srcs")
             // Hours slept per morning feed the study plan (Burnout.bundlesFor / capMin) and sync to the PC app.
             val mins = nights.associate { it.date.toString() to it.asleepMin }
             val r0 = com.josephmiller.cloudroadmap.Store.load(ctx)
             if (mins.any { (k, v) -> r0.sleep[k] != v }) com.josephmiller.cloudroadmap.Store.edit(ctx) { r -> r.sleep.putAll(mins) }
         } catch (e: SecurityException) {
-            state.value = State.NeedsPermission
+            state.value = State.NeedsPermission; report(ctx, "needs permission (security)")
         } catch (e: Exception) {
-            state.value = State.Failed(e.message ?: "Health Connect didn't answer")
+            state.value = State.Failed(e.message ?: "Health Connect didn't answer"); report(ctx, "failed: ${e.javaClass.simpleName}: ${e.message?.take(80)}")
         }
     }
 }
