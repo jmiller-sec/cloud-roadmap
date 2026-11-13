@@ -6,13 +6,13 @@ plugins {
 
 android {
     namespace = "com.josephmiller.cloudroadmap"
-    compileSdk = 35
+    compileSdk = 36
     defaultConfig {
         applicationId = "com.josephmiller.cloudroadmap"
         minSdk = 26
         targetSdk = 35
-        versionCode = 39
-        versionName = "5.5"
+        versionCode = 40
+        versionName = "5.6"
     }
     signingConfigs {
         create("jm") {
@@ -57,6 +57,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("androidx.glance:glance-appwidget:1.1.1")
+    implementation("androidx.health.connect:connect-client:1.1.0")
 }
 
 dependencies {

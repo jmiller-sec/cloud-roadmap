@@ -873,6 +873,8 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(14.dp)) {
         item {
             ScreenHeader("WTD", "What to do · ${today.format(dayFmt)}", onSettings)
+            com.josephmiller.cloudroadmap.sleep.SleepCard()
+            Spacer(Modifier.height(12.dp))
 
             Panel(Modifier.fillMaxWidth(), glow = (if (allDone) Neon.Green else Neon.Cyan).copy(alpha = 0.5f)) {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
