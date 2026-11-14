@@ -122,12 +122,13 @@ object AppUpdate {
         Apk(o.getInt("versionCode"), o.getString("versionName"))
     }.getOrNull()
 
-    fun latestMsi(token: String, repo: String = CloudSync.DEFAULT_REPO): Msi? = runCatching {
+    /** [suffix] picks the installer for this computer: ".msi" on Windows, ".dmg" on a Mac. */
+    fun latestMsi(token: String, repo: String = CloudSync.DEFAULT_REPO, suffix: String = ".msi"): Msi? = runCatching {
         val c = api("https://api.github.com/repos/$repo/releases/latest", token)
         if (c.responseCode != 200) return null
         val o = JSONObject(c.inputStream.bufferedReader().readText())
         val assets = o.getJSONArray("assets")
-        val a = (0 until assets.length()).map { assets.getJSONObject(it) }.firstOrNull { it.getString("name").endsWith(".msi") } ?: return null
+        val a = (0 until assets.length()).map { assets.getJSONObject(it) }.firstOrNull { it.getString("name").endsWith(suffix) } ?: return null
         Msi(o.getString("tag_name").removePrefix("v"), a.getString("url"), a.getString("name"))
     }.getOrNull()
 

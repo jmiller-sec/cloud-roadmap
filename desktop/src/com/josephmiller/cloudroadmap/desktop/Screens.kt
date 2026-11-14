@@ -350,7 +350,7 @@ fun WguScreen(app: AppState) {
 fun SettingsScreen(app: AppState) {
     var token by remember { mutableStateOf(app.token()) }
     val scope = rememberCoroutineScope()
-    Page("Settings", "Cloud Roadmap for Windows · v${app.version}") {
+    Page("Settings", "Cloud Roadmap for ${app.osName} · v${app.version}") {
         item {
             Panel(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

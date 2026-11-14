@@ -22,19 +22,24 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
 }
 
-val appVersion = (project.findProperty("appVersion") as String?) ?: "5.9.0"
+val appVersion = (project.findProperty("appVersion") as String?) ?: "5.10.0"
 
 compose.desktop {
     application {
         mainClass = "com.josephmiller.cloudroadmap.desktop.MainKt"
         jvmArgs += listOf("-Dapp.version=$appVersion")
         nativeDistributions {
-            targetFormats(TargetFormat.Msi, TargetFormat.Exe)
+            targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Dmg)
             packageName = "Cloud Roadmap"
             packageVersion = appVersion
             description = "Joseph's cybersecurity roadmap"
             vendor = "jmiller-sec"
             modules("java.net.http", "java.desktop")
+            macOS {
+                bundleID = "com.josephmiller.cloudroadmap.desktop"
+                dockName = "Cloud Roadmap"
+                if (project.file("icon.icns").exists()) iconFile.set(project.file("icon.icns"))
+            }
             windows {
                 menu = true
                 shortcut = true

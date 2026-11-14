@@ -155,15 +155,33 @@ class AppState {
 
     fun checkUpdate() {
         val t = token(); if (t.isBlank()) return
-        val m = AppUpdate.latestMsi(t) ?: return
+        val m = AppUpdate.latestMsi(t, suffix = if (isMac) ".dmg" else ".msi") ?: return
         if (AppUpdate.newer(m.version, version)) { msi = m; update = m.version to "" }
     }
+
+    val isMac = System.getProperty("os.name").orEmpty().lowercase().contains("mac")
+    val osName get() = if (isMac) "Mac" else "Windows"
 
     /** One click: download the new installer, close, install over this version, reopen. Data in ~/.cloudroadmap stays. */
     fun installUpdate(exit: () -> Unit) {
         val m = msi ?: return
         if (updating != null) return
         updating = "Downloading ${m.version}..."
+        if (isMac) {
+            // Mac: download the .dmg to Downloads, open it, and quit so the app can be replaced by dragging.
+            scope.launch(Dispatchers.IO) {
+                runCatching {
+                    val file = File(File(System.getProperty("user.home"), "Downloads"), m.name)
+                    AppUpdate.downloadMsi(token(), m, file)
+                    ProcessBuilder("open", file.absolutePath).start()
+                }.onSuccess {
+                    withContext(Dispatchers.Main) { updating = "Opened ${m.name}. Drag Cloud Roadmap into Applications and choose Replace."; kotlinx.coroutines.delay(2500); exit() }
+                }.onFailure {
+                    withContext(Dispatchers.Main) { updating = null; notify("Update failed", it.message ?: "") }
+                }
+            }
+            return
+        }
         scope.launch(Dispatchers.IO) {
             runCatching {
                 val dir = File(System.getProperty("java.io.tmpdir"), "CloudRoadmapUpdate")

@@ -198,7 +198,7 @@ fun WtdWide(app: AppState, hide: (Boolean) -> Unit) {
             AnimatedVisibility(app.update != null) {
                 app.update?.let { (tag, _) ->
                     Panel(Modifier.fillMaxWidth().padding(bottom = 14.dp).clickable { app.installUpdate { kotlin.system.exitProcess(0) } }, glow = Neon.Green) {
-                        Text(app.updating ?: "✨ Update $tag is ready. Click to update (the app closes, updates, and reopens).", color = Neon.Green, modifier = Modifier.padding(14.dp))
+                        Text(app.updating ?: if (app.isMac) "✨ Update $tag is ready. Click to download it, then drag it into Applications." else "✨ Update $tag is ready. Click to update (the app closes, updates, and reopens).", color = Neon.Green, modifier = Modifier.padding(14.dp))
                     }
                 }
             }
