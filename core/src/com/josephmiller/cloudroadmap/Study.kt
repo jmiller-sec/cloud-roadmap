@@ -48,6 +48,8 @@ object StudyPlan {
 
         if (!off && mode != Mode.REST) when (date.dayOfWeek) {
             DayOfWeek.TUESDAY -> {
+                if (date == JOB_VIDEO_DAY) out += DayTask("todo:job_resume_vid", "todo", "Watch first · 12 min",
+                    "Simply Cyber: How I got SOC analyst experience without a job (real resume bullets). Then start the applications.", null, "https://youtu.be/SDAVWobpC3c")
                 Burnout.jobTask(date)?.let { out += it }
                 if (csDone && Burnout.jobTask(date) == null) videoTask(date, r)?.let { out += it }
             }
@@ -60,9 +62,14 @@ object StudyPlan {
             }
             DayOfWeek.SATURDAY -> if (csDone) {
                 val wk = ThmPlan.weeks.firstOrNull { "$date|thmwk:${it.n}" in r.studyDone } ?: ThmPlan.next(r)
-                if (wk != null) out += DayTask(wk.key, "thm", "Work laptop · TryHackMe ${wk.n}/${ThmPlan.weeks.size}",
-                    "${wk.module}: ${wk.rooms}", "thm_soc1", ThmPlan.PATH_SOC1)
-                else if (projectsOpen(date)) nextLabStep(r)?.let { out += it }
+                if (wk != null) {
+                    // The week's videos come first on Saturday if they weren't watched on the commute.
+                    listOf(wk.tueKey to wk.tue, wk.thuKey to wk.thu).forEach { (k, v) ->
+                        if (v != null) out += DayTask(k, "video", "Watch first · goes with today's module", "${v.title}. Pairs with: ${wk.module}.", "thm_soc1", v.url)
+                    }
+                    out += DayTask(wk.key, "thm", "Work laptop · TryHackMe ${wk.n}/${ThmPlan.weeks.size}",
+                        "${wk.module}: ${wk.rooms}", "thm_soc1", ThmPlan.PATH_SOC1)
+                } else if (projectsOpen(date)) { labVideoTask(r)?.let { out += it }; nextLabStep(r)?.let { out += it } }
             }
             else -> {}
         }
@@ -95,6 +102,17 @@ object StudyPlan {
     /** The Study.com course to work on: the first unfinished one, once its start date arrives. */
     fun studyComFor(date: LocalDate, r: Roadmap): Item? =
         TRANSFERS.mapNotNull { r.item(it) }.firstOrNull { it.status != Status.DONE && !r.paused(it.id) }?.takeIf { !date.isBefore(it.start) }
+
+    /** First job-hunt Tuesday: one resume video before the applications. */
+    val JOB_VIDEO_DAY: LocalDate = LocalDate.parse("2027-01-19")
+
+    /** The project's starter walkthrough, shown until it's ticked, before step 1. */
+    fun labVideoTask(r: Roadmap): DayTask? {
+        val p = Projects.current(r) ?: return null
+        val v = Projects.videos[p.id] ?: return null
+        if ("lab:${p.id}:0" in r.studyDone) return null
+        return DayTask("todo:labvid_${p.id}", "todo", "Watch first · ${p.title}", "${v.title}. Watch it once, then start step 1.", null, v.url)
+    }
 
     fun nextLabStep(r: Roadmap): DayTask? {
         val p = Projects.current(r) ?: return null

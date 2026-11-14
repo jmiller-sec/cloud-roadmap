@@ -163,6 +163,7 @@ fun WtdWide(app: AppState, hide: (Boolean) -> Unit) {
     var noteFor by remember { mutableStateOf<Pair<StudyBundle, DayTask>?>(null) }
 
     var pendingGate by remember { mutableStateOf<StudyBundle?>(null) }
+    var vquiz by remember { mutableStateOf<Triple<StudyBundle, LessonPair, String>?>(null) }
     var hint by remember { mutableStateOf<String?>(null) }
     val needsCheckin = Gate.needsCheckin(r, today) && today == LocalDate.now()
     fun startTimer() {
@@ -171,6 +172,15 @@ fun WtdWide(app: AppState, hide: (Boolean) -> Unit) {
     }
     fun tap(b: StudyBundle, task: DayTask) {
         if (task.key in r.studyDone) return app.change { it.toggleTask(task, today) }
+        val sec0 = task.key.substringAfterLast(":")
+        if (!b.inOrder(r.studyDone, sec0)) { hint = "Do the step above this one first."; return }
+        if (sec0 == "pn" || sec0 == "nc") {
+            if (needsCheckin) { hint = "Check in first (right side): how do you feel right now?"; return }
+            if (!Gate.videoUnlocked(r, b.n)) { hint = "Locked. Pass lesson ${b.n - 1}'s first video check."; return }
+            hint = null
+            Videos.lessonByBundle[b.n]?.let { vquiz = Triple(b, it, sec0) }
+            return
+        }
         if (capped || late) return
         if (needsCheckin) { hint = "Check in first (right side): how do you feel right now?"; return }
         val sec = task.key.substringAfterLast(":")
@@ -211,7 +221,13 @@ fun WtdWide(app: AppState, hide: (Boolean) -> Unit) {
                         color = if (real.isNotEmpty() && doneN == real.size) Neon.Green else Neon.Text, fontSize = 22.sp, fontWeight = FontWeight.Black)
                     if (real.isNotEmpty()) { Spacer(Modifier.height(10.dp)); Bar(doneN.toFloat() / real.size, Neon.Cyan, Modifier.fillMaxWidth()) }
                     if (mode == Mode.B) Text("Your last two energy checks were low, so Saturday is 2 bundles this week.", color = Neon.Amber, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
-                    others.forEach { o -> OtherTaskRow(app, o, today) { if (needsCheckin) "Check in first (right side): how do you feel right now?" else null } }
+                    others.forEachIndexed { i, o ->
+                        val earlier = others.take(i).firstOrNull { it.stream != "rest" && !r.isDone(it) }
+                        val outOfOrder = earlier != null && (o.stream == "lvideo" || earlier.stream == "lvideo" || earlier.where.startsWith("Watch first"))
+                        OtherTaskRow(app, o, today, onVideo = { n, k -> Videos.lessonByBundle[n]?.let { vquiz = Triple(Bundles.byN(n), it, k) } }) {
+                            if (needsCheckin) "Check in first (right side): how do you feel right now?" else if (outOfOrder) "Do the step above this one first." else null
+                        }
+                    }
                     hint?.let { Text(it, color = Neon.Amber, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp)) }
                 }
             }
@@ -247,6 +263,15 @@ fun WtdWide(app: AppState, hide: (Boolean) -> Unit) {
                 pendingWarm = null; quiz = null
             }, onCancel = { pendingWarm = null; pendingGate = null; quiz = null })
     }
+    vquiz?.let { (b, pair, k) ->
+        val v = if (k == "pn") pair.pn else pair.chuck
+        QuizDialog("Quick check: ${v.title}", Quiz.afterVideo(b, k, today, Gate.videoFails(r, pair.key(k))),
+            onDone = { score ->
+                app.change { Gate.recordVideo(it, pair.key(k), score) }
+                hint = if (score >= Gate.PASS) "$score/3. Counted. Next step is open." else "$score/3. Not counted yet. Rewatch it and try again."
+                vquiz = null
+            }, onCancel = { vquiz = null })
+    }
     noteFor?.let { (b, task) ->
         NoteDialog(b.noteHint, r.portfolio[b.n.toString()] ?: "",
             onSave = { text -> app.change { it.portfolio[b.n.toString()] = text.trim(); it.toggleTask(task, today) }; noteFor = null },
@@ -255,19 +280,21 @@ fun WtdWide(app: AppState, hide: (Boolean) -> Unit) {
 }
 
 @Composable
-fun OtherTaskRow(app: AppState, t: DayTask, today: LocalDate, blocked: () -> String? = { null }) {
+fun OtherTaskRow(app: AppState, t: DayTask, today: LocalDate, onVideo: (Int, String) -> Unit = { _, _ -> }, blocked: () -> String? = { null }) {
     val done = app.r.isDone(t)
     var msg by remember(t.key) { mutableStateOf<String?>(null) }
-    val c = when (t.stream) { "job" -> Color(0xFFFF8A65); "video" -> Color(0xFF4DA3FF); "thm" -> Neon.Green; "course" -> Neon.Amber; "lab" -> Neon.Violet; "todo" -> Color(0xFFFF7AC6); else -> Neon.Muted }
+    val c = when (t.stream) { "job" -> Color(0xFFFF8A65); "video", "lvideo" -> Color(0xFF4DA3FF); "thm" -> Neon.Green; "course" -> Neon.Amber; "lab" -> Neon.Violet; "todo" -> Color(0xFFFF7AC6); else -> Neon.Muted }
     Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Label(t.where, c)
             Text(t.task, color = if (done) Neon.Muted else Neon.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
-            t.url?.let { u -> Text("▶ Open", color = c, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp).clickable { app.open(u) }) }
+            t.url?.let { u -> Text(if (t.stream == "video" || t.stream == "lvideo" || t.where.startsWith("Watch")) "▶ Watch" else "▶ Open", color = c, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp).clickable { app.open(u) }) }
         }
         if (t.stream != "rest") { Spacer(Modifier.width(12.dp)); CheckBubble(done, false, c) {
             val b = if (done) null else blocked()
-            if (b != null) msg = b else { msg = null; app.change { it.toggleTask(t, today) } }
+            if (b != null) msg = b
+            else if (t.stream == "lvideo" && !done) { msg = null; onVideo(t.key.split(":")[1].toInt(), t.key.substringAfterLast(":")) }
+            else { msg = null; app.change { it.toggleTask(t, today) } }
         } }
     }
     msg?.let { Text(it, color = Neon.Amber, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp)) }
@@ -313,14 +340,15 @@ fun BundleCard(app: AppState, b: StudyBundle, locked: Boolean, onTap: (DayTask) 
                                     }
                                 }
                                 s.url?.let { u ->
-                                    Text("▶ Open", color = c, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp).clickable { app.open(u) })
+                                    Text(if (s.id == "pn" || s.id == "nc") "▶ Watch" else "▶ Open", color = c, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp).clickable { app.open(u) })
                                 }
                             }
                         }
                     }
                     Spacer(Modifier.width(14.dp))
-                    val gated = s.id != "warm" && !Gate.passed(r, b.n)
-                    CheckBubble(sDone, (locked || gated) && !sDone, c) { onTap(task) }
+                    val isVid = s.id == "pn" || s.id == "nc"
+                    val gated = if (isVid) !Gate.videoUnlocked(r, b.n) || !b.inOrder(r.studyDone, s.id) else (s.id != "warm" && !Gate.passed(r, b.n)) || !b.inOrder(r.studyDone, s.id)
+                    CheckBubble(sDone, ((locked && !isVid) || gated) && !sDone, c) { onTap(task) }
                 }
             }
         }

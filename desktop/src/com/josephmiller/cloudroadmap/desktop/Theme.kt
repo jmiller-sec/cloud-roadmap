@@ -51,7 +51,7 @@ object Neon {
 val Mono = FontFamily.Monospace
 
 fun sectionColor(id: String) = when (id) {
-    "sophia" -> Neon.Amber; "thm" -> Neon.Green; "pt" -> Neon.Teal; "warm" -> Neon.Violet; else -> Neon.Cyan
+    "sophia" -> Neon.Amber; "thm" -> Neon.Green; "pt" -> Neon.Teal; "warm" -> Neon.Violet; "pn", "nc" -> Color(0xFF4DA3FF); else -> Neon.Cyan
 }
 
 @Composable

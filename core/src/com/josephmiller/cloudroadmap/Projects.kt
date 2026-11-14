@@ -18,6 +18,23 @@ class Part(val name: String, val price: Int, val why: String, val search: String
 
 /** Ordered by importance: do #1 first, work down to Expert. */
 object Projects {
+    /** One starter walkthrough per project, shown on WTD before step 1. Exact videos, checked 2026-11-14. The furthest-out projects get picked closer to their date. */
+    val videos: Map<String, PairedVideo> = mapOf(
+        "lab_ad" to PairedVideo("Josh Madakor · Basic home lab running Active Directory (62 min)", "https://youtu.be/MHsI8hJmggI"),
+        "lab_net" to PairedVideo("howtonetwork · Use Wireshark to troubleshoot DNS problems (5 min)", "https://youtu.be/vJsOteThRYA"),
+        "lab_ps" to PairedVideo("Server Academy · Create Active Directory users with PowerShell (10 min)", "https://youtu.be/cW9LOo755ys"),
+        "gh_portfolio" to PairedVideo("MyDFIR · Create a cybersecurity portfolio on GitHub (15 min)", "https://youtu.be/p59B-I67yf8"),
+        "lab_fw" to PairedVideo("Home Network Guy · Beginner's guide to a full network with OPNsense (41 min)", "https://youtu.be/CXp0CgilMRA"),
+        "p_phish" to PairedVideo("MyDFIR · SOC analyst lab: email analysis (phishing) (26 min)", "https://youtu.be/k7HeshxhwPk"),
+        "p_siem" to PairedVideo("Jon Good · Splunk tutorial for beginners (12 min)", "https://youtu.be/3CiRs6WaWaU"),
+        "p_traffic" to PairedVideo("Chris Greer · Malware analysis with Wireshark (15 min)", "https://youtu.be/Brx4cygfmg8"),
+        "p_ir" to PairedVideo("Rapid7 · Incident response tabletop exercises (4 min)", "https://youtu.be/vXAJOpJzOzY"),
+        "p_malware" to PairedVideo("MyDFIR · Malware virtual machines: REMnux and FlareVM (10 min)", "https://youtu.be/Hqq4oYx2tTM"),
+        "p_sentinel" to PairedVideo("Josh Madakor · Cyber home lab with Microsoft Sentinel (63 min)", "https://youtu.be/g5JL2RIbThM"),
+        "p_terraform" to PairedVideo("TechWorld with Nana · Terraform explained in 15 mins", "https://youtu.be/l5k1ai_GBDE"),
+        "p_detect" to PairedVideo("SOCDemystified · Sigma rules explained (6 min)", "https://youtu.be/joGLIbt6JtI"),
+    )
+
     val all = listOf(
         // ---------------- BEGINNER: help desk, done before you apply (mid-Jan 2027) ----------------
         Project("lab_ad", "Beginner", "Active Directory home lab",

@@ -91,9 +91,9 @@ class BurnoutTest {
         val r = Roadmap(); val s1 = d("2026-11-14")
         assertTrue(Gate.needsCheckin(r, s1)); assertEquals(60, Burnout.capMin(s1, r))
         Gate.setCheckin(r, s1, 5) // no sleep data: videos only
-        assertEquals(listOf("todo:warm1_vid"), StudyPlan.tasksFor(s1, r).filter { it.stream == "todo" }.map { it.key })
+        assertEquals(listOf("vid:1:pn", "vid:1:nc"), StudyPlan.tasksFor(s1, r).filter { it.stream != "rest" }.map { it.key })
         r.sleep[s1.toString()] = 450
-        assertEquals(listOf("todo:warm1_vid", "todo:warm1_pt"), StudyPlan.tasksFor(s1, r).filter { it.stream == "todo" }.map { it.key })
+        assertEquals(listOf("vid:1:pn", "vid:1:nc", "todo:warm1_pt"), StudyPlan.tasksFor(s1, r).filter { it.stream != "rest" }.map { it.key })
         assertEquals(0, Burnout.bundlesFor(r, s1))
         assertFalse(Gate.videoUnlocked(r, 2)); r.studyDone.add("vid:1:pn"); assertTrue(Gate.videoUnlocked(r, 2))
     }
@@ -188,13 +188,14 @@ class BurnoutTest {
         val r = Roadmap()
         Bundles.all.forEach { finish(r, it, d("2026-12-31")) }
         assertEquals(Status.DONE, r.item("cs1015")!!.status)
-        assertEquals("thm", StudyPlan.tasksFor(d("2027-01-02"), r)[0].stream) // SOC L1 Saturdays
+        StudyPlan.tasksFor(d("2027-01-02"), r).let { t -> assertEquals("video", t[0].stream); assertEquals("thm", t.last().stream) } // SOC L1 Saturdays: videos, then the module
         assertEquals("video", StudyPlan.tasksFor(d("2027-01-05"), r)[0].stream)
-        assertEquals("job", StudyPlan.tasksFor(d("2027-01-19"), r)[0].stream) // Tuesday job night
+        assertEquals(listOf("todo", "job"), StudyPlan.tasksFor(d("2027-01-19"), r).map { it.stream }) // first job night: resume video, then applications
+        assertEquals("job", StudyPlan.tasksFor(d("2027-01-26"), r)[0].stream)
         assertEquals("video", StudyPlan.tasksFor(d("2027-01-21"), r)[0].stream)
         assertEquals("course", StudyPlan.tasksFor(d("2027-02-04"), r)[0].stream) // Study.com Thursdays
         assertTrue(StudyPlan.tasksFor(d("2027-02-04"), r)[0].task.contains("Philosophy 104"))
-        val job = StudyPlan.tasksFor(d("2027-01-19"), r)[0]
+        val job = StudyPlan.tasksFor(d("2027-01-19"), r).first { it.stream == "job" }
         r.toggleTask(job, d("2027-01-19"))
         assertTrue(r.dayDone(d("2027-01-19")))
         assertEquals(Status.WORKING, r.item("helpdesk_job")!!.status)
@@ -204,12 +205,36 @@ class BurnoutTest {
         val r = Roadmap()
         r.energy["2026-11-10"] = 3; r.studyMin["2026-11-10"] = 75; r.portfolio["1"] = "Built a LAN"
         r.timerStart = 123L; r.timerDay = "2026-11-10"
+        r.studyDone.add("fix:v40") // an up-to-date install: the one-time v4.0 cleanup already ran
         val b1 = Bundles.byN(1)
         finish(r, b1, d("2026-11-10"))
         val r2 = Roadmap.fromJson(r.toJson())
         assertEquals(3, r2.energy["2026-11-10"]); assertEquals(75, r2.studyMin["2026-11-10"])
         assertEquals("Built a LAN", r2.portfolio["1"]); assertEquals(123L, r2.timerStart)
         assertTrue(Bundles.isDone(r2, b1))
+    }
+
+    @Test fun everyDayNamesItsExactVideo() {
+        // All 26 lessons carry two exact YouTube links, in the bundle, in order: first video before Sophia, second after.
+        assertEquals(26, Videos.lessons.size)
+        Videos.lessons.forEach { p -> listOf(p.pn, p.chuck).forEach { v -> assertTrue(v.url.startsWith("https://youtu.be/") && v.id.length == 11 && v.mins > 0) } }
+        Bundles.all.forEach { b ->
+            val ids = b.sections.map { it.id }
+            assertTrue(ids.indexOf("pn") < ids.indexOf("sophia") && ids.indexOf("sophia") < ids.indexOf("nc") && ids.last() == "note")
+            assertEquals(Videos.lessonByBundle[b.n]!!.pn.url, b.sections.first { it.id == "pn" }.url)
+        }
+        // Steps open in order, and a passed quick check counts in the bundle and the Videos tab alike.
+        val r = Roadmap(); val b1 = Bundles.byN(1)
+        assertTrue(b1.inOrder(r.studyDone, "pn")); assertFalse(b1.inOrder(r.studyDone, "sophia"))
+        assertFalse(Gate.recordVideo(r, b1.key("pn"), 1)); assertFalse(b1.inOrder(r.studyDone, "sophia"))
+        assertTrue(Gate.recordVideo(r, b1.key("pn"), 2)); assertTrue(b1.inOrder(r.studyDone, "sophia"))
+        assertTrue("vid:1:pn" in r.studyDone)
+        // No search links left anywhere in the TryHackMe weeks; Saturday lists the week's videos before the module.
+        ThmPlan.weeks.forEach { w -> listOfNotNull(w.tue, w.thu).forEach { assertTrue(it.url.startsWith("https://youtu.be/")) } }
+        // First job-hunt Tuesday has its resume video first.
+        assertEquals("todo:job_resume_vid", StudyPlan.tasksFor(d("2027-01-19"), Roadmap().also { rr -> Bundles.all.forEach { finish(rr, it, d("2027-01-16")) } })[0].key)
+        // Projects with a starter video show it before step 1.
+        assertTrue(Projects.videos.keys.all { id -> Projects.all.any { it.id == id } })
     }
 }
 

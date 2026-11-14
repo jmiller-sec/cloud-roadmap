@@ -46,6 +46,14 @@ class ScreenshotTest {
     }
 
     @Test fun wtd() = shot(0, "0-wtd")
+    /** Today with the morning check-in done and nothing ticked: what the day's step list looks like before starting. */
+    @Test fun wtdFresh() {
+        val t = LocalDate.now()
+        val r = Roadmap(); r.applyOneTimeFixes(t)
+        r.checkin[t.toString()] = 4; r.sleep[t.toString()] = 470
+        rule.setContent { RoadmapTheme { AppContent(r, 0, {}, {}) } }
+        rule.onRoot().captureRoboImage("build/shots/0-wtd-fresh.png")
+    }
     @Test fun roadmap() = shot(1, "1-roadmap")
     @Test fun projects() = shot(2, "2-projects")
     @Test fun videos() = shot(3, "3-videos")

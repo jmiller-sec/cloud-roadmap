@@ -68,6 +68,12 @@ object Gate {
 
     // ---------- lesson videos ----------
     /** A lesson's video pair only opens once the previous lesson's "learn it" video was passed (2/3 quick check). */
+    /** Result of a video quick check: a pass ticks the video everywhere, a miss counts toward new questions. */
+    fun recordVideo(r: Roadmap, key: String, score: Int): Boolean {
+        if (score >= PASS) { r.studyDone.add(key); r.studyDone.add("quiz:$key:$score") }
+        else r.studyDone.add("vidfail:$key:${videoFails(r, key) + 1}")
+        return score >= PASS
+    }
     fun videoUnlocked(r: Roadmap, n: Int) = n <= 1 || "vid:${n - 1}:pn" in r.studyDone
     fun videoFails(r: Roadmap, pairKey: String) = r.studyDone.count { it.startsWith("vidfail:$pairKey:") }
 
@@ -82,10 +88,13 @@ object Gate {
         val n = WARMUP[d] ?: return emptyList()
         if (checkin(r, d) != null && score(r, d) == 0) return listOf(DayTask("$d|rest", "rest", "Rest day", "Your check-in says you're empty. Warm-up skipped; Dec 1 is what matters.", null))
         val out = mutableListOf<DayTask>()
-        val lessons = if (n == 1) "1 and 2" else "2 and 3"
-        out += DayTask("todo:warm${n}_vid", "todo", "Warm-up · lesson videos $lessons",
-            "Videos tab. Watch, then pass the quick check (2 of 3) to unlock the next lesson. Fail = rewatch and retry.", null)
-        if (warmupFull(r, d)) out += DayTask("todo:warm${n}_pt", "todo", "Warm-up · Packet Tracer basics (${if (n == 1) "first" else "second"} half)",
+        Videos.lessonByBundle[n]?.let { pair ->
+            listOf("pn" to pair.pn, "nc" to pair.chuck).forEach { (k, v) ->
+                out += DayTask(pair.key(k), "lvideo", "Step ${if (k == "pn") 1 else 2}: watch (${v.mins} min)",
+                    "${v.channel}: ${v.title}. Then tap the circle and pass the quick check (2 of 3). Miss it: rewatch and retry.", null, v.url)
+            }
+        }
+        if (warmupFull(r, d)) out += DayTask("todo:warm${n}_pt", "todo", "Step 3: hands-on (about 30 min)",
             "Cisco's free 2-hour course \"Getting Started with Cisco Packet Tracer\" (log in with your NetAcad account). " +
                 (if (n == 1) "Do the first half: the interface, adding devices, cabling." else "Do the second half: simulation mode and the final activity.") +
                 " If the link moved, search NetAcad for the course name.", null, PT_URL)

@@ -10,13 +10,15 @@ import java.io.File
 /** Renders the Windows app to PNGs (no screen needed) so the design can be checked. */
 fun main(args: Array<String>) {
     val app = AppState()
-    app.dateOverride = java.time.LocalDate.parse("2026-12-05")
+    app.dateOverride = java.time.LocalDate.parse(System.getenv("SNAP_DATE") ?: "2026-12-05")
     // Sample progress: bundle 1 done, bundle 2 half done, timer running 70 min in.
     val d = app.today()
     val b1 = com.josephmiller.cloudroadmap.Bundles.byN(1)
-    b1.sections.forEach { s -> app.r.toggleTask(com.josephmiller.cloudroadmap.StudyPlan.sectionTask(b1, s), d) }
     val b2 = com.josephmiller.cloudroadmap.Bundles.byN(2)
-    b2.sections.take(2).forEach { s -> app.r.toggleTask(com.josephmiller.cloudroadmap.StudyPlan.sectionTask(b2, s), d) }
+    if (System.getenv("SNAP_FRESH") == null) {
+        b1.sections.forEach { s -> app.r.toggleTask(com.josephmiller.cloudroadmap.StudyPlan.sectionTask(b1, s), d) }
+        b2.sections.take(2).forEach { s -> app.r.toggleTask(com.josephmiller.cloudroadmap.StudyPlan.sectionTask(b2, s), d) }
+    }
     app.r.studyMin[d.toString()] = 70
     app.r.portfolio["1"] = b1.noteHint
     app.r.energy["2026-12-03"] = 4

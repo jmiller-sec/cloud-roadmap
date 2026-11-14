@@ -761,7 +761,7 @@ private fun kindColor(kind: String) = when (kind) {
     "tcm", "soc" -> Neon.Cyan
     "ld" -> Neon.Green
     "lab" -> Neon.Violet
-    "video" -> Color(0xFF4DA3FF)
+    "video", "lvideo" -> Color(0xFF4DA3FF)
     "thm" -> Neon.Green
     "pt" -> Color(0xFF2BD9C9)
     "bundle" -> Color(0xFF7AA2FF)
@@ -774,12 +774,12 @@ private fun kindColor(kind: String) = when (kind) {
 }
 
 private fun kindLabel(kind: String) = when (kind) {
-    "tcm" -> "TCM"; "soc" -> "SOC"; "ld" -> "PRACTICE"; "lab" -> "LAB"; "video" -> "VIDEO"; "thm" -> "TRYHACKME"; "pt" -> "PACKET TRACER"; "bundle" -> "BUNDLE"; "job" -> "JOB HUNT"
+    "tcm" -> "TCM"; "soc" -> "SOC"; "ld" -> "PRACTICE"; "lab" -> "LAB"; "video", "lvideo" -> "VIDEO"; "thm" -> "TRYHACKME"; "pt" -> "PACKET TRACER"; "bundle" -> "BUNDLE"; "job" -> "JOB HUNT"
     "course" -> "COURSE"; "jobs" -> "JOBS"; "alerts" -> "ALERTS"; "todo" -> "TO-DO"; else -> "REST"
 }
 
 @Composable
-private fun TaskRow(t: DayTask, done: Boolean, onToggle: () -> Unit) {
+private fun TaskRow(t: DayTask, done: Boolean, locked: Boolean = false, onToggle: () -> Unit) {
     val c = kindColor(t.stream)
     Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
@@ -795,7 +795,7 @@ private fun TaskRow(t: DayTask, done: Boolean, onToggle: () -> Unit) {
             )
             t.url?.let { u ->
                 val ctx = LocalContext.current
-                Text(when (t.stream) { "video" -> "▶ Watch"; "thm" -> "▶ Open TryHackMe"; "pt" -> "▶ Packet Tracer course"; "lab" -> "▶ Open"; else -> "▶ Open link" }, color = kindColor(t.stream), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                Text(when { t.stream == "video" || t.stream == "lvideo" || t.where.startsWith("Watch") -> "▶ Watch"; else -> when (t.stream) { "thm" -> "▶ Open TryHackMe"; "pt" -> "▶ Packet Tracer course"; "lab" -> "▶ Open"; else -> "▶ Open link" } }, color = kindColor(t.stream), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 6.dp).clickable { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u))) } })
             }
         }
@@ -804,10 +804,10 @@ private fun TaskRow(t: DayTask, done: Boolean, onToggle: () -> Unit) {
             Box(
                 Modifier.size(40.dp).clip(CircleShape)
                     .background(if (done) c else c.copy(alpha = 0.08f))
-                    .border(1.5.dp, c, CircleShape)
+                    .border(1.5.dp, if (locked) Neon.Line else c, CircleShape)
                     .clickable { onToggle() },
                 contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Filled.Check, "Done", tint = if (done) Neon.Bg else c.copy(alpha = 0.6f), modifier = Modifier.size(22.dp)) }
+            ) { Icon(if (locked) Icons.Filled.Lock else Icons.Filled.Check, "Done", tint = if (done) Neon.Bg else if (locked) Neon.Muted else c.copy(alpha = 0.6f), modifier = Modifier.size(22.dp)) }
         }
     }
 }
@@ -847,6 +847,7 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
     var noteFor by remember { mutableStateOf<Pair<StudyBundle, DayTask>?>(null) }
     var pendingWarm by remember { mutableStateOf<DayTask?>(null) }
     var pendingGate by remember { mutableStateOf<StudyBundle?>(null) }
+    var vquiz by remember { mutableStateOf<Triple<StudyBundle, LessonPair, String>?>(null) }
     val sat = ThmPlan.saturdayOf(today)
     val weekStart = sat.minusDays(4) // Tue
     val monthDays = r.studyDaysThisMonth(today)
@@ -870,6 +871,15 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
     fun tapSection(b: StudyBundle, t: DayTask) {
         val done = t.key in r.studyDone
         if (done) return change { it.toggleTask(t, today) }
+        val sec0 = t.key.substringAfterLast(":")
+        if (!b.inOrder(r.studyDone, sec0)) return toast("Do the step above this one first.")
+        if (sec0 == "pn" || sec0 == "nc") {
+            // Videos are commute work: no timer, no cap. Only the check-in and the quick check apply.
+            if (needsCheckin) return toast("Check in first: how do you feel right now?")
+            if (!Gate.videoUnlocked(r, b.n)) return toast("Locked. Pass lesson ${b.n - 1}'s first video check.")
+            Videos.lessonByBundle[b.n]?.let { vquiz = Triple(b, it, sec0) }
+            return
+        }
         if (capped) return toast("Today's cap is reached. This waits for next time.")
         if (lateStart) return toast("It's after 8 pm. This bundle waits for next time.")
         if (needsCheckin) return toast("Check in first: how do you feel right now?")
@@ -927,8 +937,16 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
                         if (!Burnout.overrideUsed(r, today)) Text("Keep me on Plan C (pass a 5/5 quiz) ›", color = Neon.Amber, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(top = 6.dp).clickable { quiz = "override" to Quiz.pick(Burnout.currentUnit(r), 5, today, "override") })
                     }
-                    others.forEach { t -> TaskRow(t, r.isDone(t)) {
+                    others.forEachIndexed { i, t ->
+                        val earlier = others.take(i).firstOrNull { it.stream != "rest" && !r.isDone(it) }
+                        val waits = !r.isDone(t) && earlier != null && (t.stream == "lvideo" || earlier.stream == "lvideo" || earlier.where.startsWith("Watch first"))
+                        TaskRow(t, r.isDone(t), locked = waits || (needsCheckin && t.stream != "rest" && !r.isDone(t))) {
                         if (needsCheckin && t.stream != "rest" && !r.isDone(t)) toast("Check in first: how do you feel right now?")
+                        else if (waits) toast("Do the step above this one first.")
+                        else if (t.stream == "lvideo" && !r.isDone(t)) {
+                            val n = t.key.split(":")[1].toInt()
+                            Videos.lessonByBundle[n]?.let { vquiz = Triple(Bundles.byN(n), it, t.key.substringAfterLast(":")) }
+                        }
                         else change { it.toggleTask(t, today) }
                     } }
                 }
@@ -992,7 +1010,10 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
                         Text("📁 Screenshots go in ${b.folder}", color = Neon.Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                         b.sections.forEach { s ->
                             val t = StudyPlan.sectionTask(b, s)
-                            SectionRow(s, t.key in r.studyDone, locked = ((capped || lateStart || needsCheckin) || (s.id != "warm" && !Gate.passed(r, b.n))) && t.key !in r.studyDone) { tapSection(b, t) }
+                            val isVid = s.id == "pn" || s.id == "nc"
+                            val lock = if (isVid) needsCheckin || !Gate.videoUnlocked(r, b.n) || !b.inOrder(r.studyDone, s.id)
+                                else (capped || lateStart || needsCheckin) || (s.id != "warm" && !Gate.passed(r, b.n)) || !b.inOrder(r.studyDone, s.id)
+                            SectionRow(s, t.key in r.studyDone, locked = lock && t.key !in r.studyDone) { tapSection(b, t) }
                         }
                     }
                 }
@@ -1132,6 +1153,16 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
             },
             onCancel = { pendingWarm = null; pendingGate = null; quiz = null })
     }
+    vquiz?.let { (b, pair, k) ->
+        val v = if (k == "pn") pair.pn else pair.chuck
+        QuizDialog("Quick check: ${v.title}", Quiz.afterVideo(b, k, today, Gate.videoFails(r, pair.key(k))),
+            onDone = { score ->
+                change { Gate.recordVideo(it, pair.key(k), score) }
+                toast(if (score >= Gate.PASS) "$score/3. Counted. Next step is open." else "$score/3. Not counted yet. Rewatch it and try again.")
+                vquiz = null
+            },
+            onCancel = { vquiz = null })
+    }
     noteFor?.let { (b, t) ->
         NoteDialog(b.noteHint, r.portfolio[b.n.toString()] ?: "",
             onSave = { text -> change { it.portfolio[b.n.toString()] = text.trim(); it.toggleTask(t, today) }; noteFor = null },
@@ -1164,7 +1195,7 @@ private fun CheckInCard(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit
 
 @Composable
 private fun SectionRow(s: Section, done: Boolean, locked: Boolean, onTap: () -> Unit) {
-    val c = when (s.id) { "sophia" -> Neon.Amber; "thm" -> Neon.Green; "pt" -> Color(0xFF2BD9C9); "warm" -> Neon.Violet; else -> Neon.Cyan }
+    val c = when (s.id) { "sophia" -> Neon.Amber; "thm" -> Neon.Green; "pt" -> Color(0xFF2BD9C9); "warm" -> Neon.Violet; "pn", "nc" -> Color(0xFF4DA3FF); else -> Neon.Cyan }
     var open by remember { mutableStateOf(!done) }
     val ctx = LocalContext.current
     Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.Top) {
@@ -1174,8 +1205,8 @@ private fun SectionRow(s: Section, done: Boolean, locked: Boolean, onTap: () -> 
                 s.steps.forEachIndexed { i, st -> Text("${i + 1}. $st", color = Neon.Text, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 4.dp)) }
                 s.shots.forEach { Text("📸 $it", color = Neon.Amber, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp)) }
                 s.url?.let { u ->
-                    Text("▶ Open", color = c, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(top = 6.dp).clickable { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u))) } })
+                    Text(if (s.id == "pn" || s.id == "nc") "▶ Watch" else "▶ Open", color = c, fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 8.dp).clickable { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u))) } })
                 }
             }
         }
@@ -1341,8 +1372,8 @@ private fun VideosTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) 
             Panel(Modifier.fillMaxWidth().padding(vertical = 4.dp), glow = Neon.Cyan.copy(alpha = 0.4f)) {
                 Column(Modifier.padding(14.dp)) {
                     Text("When to watch", color = Neon.Cyan, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text("① Before: the learn-it video on the commute to work, the morning of that lesson.", color = Neon.Text, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
-                    Text("② After: NetworkChuck on the ride home or your next day off, to lock it in.", color = Neon.Text, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+                    Text("① Watch first: on the commute to work, the morning of that lesson.", color = Neon.Text, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+                    Text("② Watch after: on the ride home or your next day off, to lock it in.", color = Neon.Text, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
                     Text("Not during: it eats your 2-hour study cap.", color = Neon.Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                     Text("Check a video off for a 3-question quick check. 2 of 3 counts it; the next lesson stays locked until you pass.", color = Neon.Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                 }
@@ -1535,8 +1566,7 @@ private fun LessonVideos(r: Roadmap, change: ((Roadmap) -> Unit) -> Unit) {
         val v = if (k == "pn") pair.pn else pair.chuck
         QuizDialog("Quick check: ${v.title}", Quiz.afterVideo(b, k, LocalDate.now(), Gate.videoFails(r, pair.key(k))),
             onDone = { score ->
-                if (score >= Gate.PASS) change { it.studyDone.add(pair.key(k)); it.studyDone.add("quiz:${pair.key(k)}:$score") }
-                else change { it.studyDone.add("vidfail:${pair.key(k)}:${Gate.videoFails(it, pair.key(k)) + 1}") }
+                change { Gate.recordVideo(it, pair.key(k), score) }
                 android.widget.Toast.makeText(ctx, if (score >= Gate.PASS) "$score/3. Counted." else "$score/3. Not counted yet. Rewatch it and try again.", android.widget.Toast.LENGTH_LONG).show()
                 quiz = null
             },
@@ -1571,7 +1601,7 @@ private fun LessonVideos(r: Roadmap, change: ((Roadmap) -> Unit) -> Unit) {
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f).clickable { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(v.url))) } }) {
                                 Text(v.title, color = if (seen) Neon.Muted else Neon.Text, fontSize = 13.sp)
-                                Text(if (k == "pn") "${v.channel} · learn it" else "NetworkChuck · make it stick", color = vc, fontSize = 11.sp, fontFamily = Mono)
+                                Text(if (k == "pn") "${v.channel} · watch first · ${v.mins} min" else "${v.channel} · watch after · ${v.mins} min", color = vc, fontSize = 11.sp, fontFamily = Mono)
                             }
                             Icon(Icons.Filled.PlayArrow, "Play", tint = vc, modifier = Modifier.size(20.dp).clickable { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(v.url))) } })
                         }
@@ -2031,7 +2061,7 @@ private fun SettingsTab(r: Roadmap, today: LocalDate, refresh: () -> Unit, chang
                     Store.save(ctx, Roadmap(credlyUser = r.credlyUser, feedUrl = r.feedUrl)); refresh(); status = "Plan reset."
                 }
             }
-            Text("CLOUD ROADMAP v6.4 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
+            Text("CLOUD ROADMAP v6.5 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
                 textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 18.dp))
         }
     }

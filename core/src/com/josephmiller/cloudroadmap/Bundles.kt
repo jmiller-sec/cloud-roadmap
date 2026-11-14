@@ -8,7 +8,10 @@ package com.josephmiller.cloudroadmap
 class Section(val id: String, val title: String, val minutes: Int, val steps: List<String>, val shots: List<String> = emptyList(), val url: String? = null)
 
 class StudyBundle(val n: Int, val unit: Int, val title: String, val light: Boolean, val sections: List<Section>, val noteHint: String) {
-    fun key(section: String) = "b:$n:$section"
+    /** Video sections share their key with the Videos tab ("vid:N:pn" / "vid:N:nc"), so passing the quick check in either place counts in both. */
+    fun key(section: String) = if (section == "pn" || section == "nc") "vid:$n:$section" else "b:$n:$section"
+    /** Steps go in order: a section is open only when every section before it is done. */
+    fun inOrder(done: Set<String>, section: String): Boolean = sections.takeWhile { it.id != section }.all { key(it.id) in done }
     val minutes get() = sections.sumOf { it.minutes }
     val folder get() = "CloudRoadmap/b%02d".format(n)
 }
@@ -35,8 +38,16 @@ object Bundles {
         Section("pt", "Packet Tracer · $name", mins, steps, shots)
     private fun note() = Section("note", "Portfolio note (2 lines)", 2, listOf("Type what you built or proved today, in 2 lines. It saves to your Portfolio list."))
 
+    private fun watch(n: Int, which: String): List<Section> {
+        val pair = Videos.lessonByBundle[n] ?: return emptyList()
+        val v = if (which == "pn") pair.pn else pair.chuck
+        return listOf(Section(which, (if (which == "pn") "Watch first · " else "Watch after · ") + "${v.channel}: ${v.title}", v.mins, listOf(
+            "Tap Watch: it opens this exact video. The commute is the best time, and 1.5x speed is fine.",
+            "When it ends, tap the circle and pass the quick check (2 of 3). Miss it: rewatch, then new questions."), emptyList(), v.url))
+    }
+
     private fun b(n: Int, unit: Int, title: String, hint: String, vararg s: Section, light: Boolean = false) =
-        StudyBundle(n, unit, title, light, (if (n > 1) listOf(warm()) else emptyList()) + s.toList() + note(), hint)
+        StudyBundle(n, unit, title, light, (if (n > 1) listOf(warm()) else emptyList()) + watch(n, "pn") + s.toList() + watch(n, "nc") + note(), hint)
 
     val all = listOf(
         // ---------------- Unit 1: Network Foundations ----------------

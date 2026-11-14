@@ -209,14 +209,13 @@ fun VideosScreen(app: AppState) {
         val v = if (k == "pn") pair.pn else pair.chuck
         QuizDialog("Quick check: ${v.title}", Quiz.afterVideo(b, k, LocalDate.now(), Gate.videoFails(r, pair.key(k))),
             onDone = { score ->
-                if (score >= Gate.PASS) app.change { it.studyDone.add(pair.key(k)); it.studyDone.add("quiz:${pair.key(k)}:$score") }
-                else app.change { it.studyDone.add("vidfail:${pair.key(k)}:${Gate.videoFails(it, pair.key(k)) + 1}") }
+                app.change { Gate.recordVideo(it, pair.key(k), score) }
                 vidMsg = if (score >= Gate.PASS) "$score/3. Counted." else "$score/3. Not counted yet. Rewatch it and try again."
                 quiz = null
             },
             onCancel = { quiz = null })
     }
-    Page("Videos", "A pair for every lesson: Practical Networking to learn it, NetworkChuck to make it stick") {
+    Page("Videos", "A pair for every lesson: one to watch before it, one after. Each opens the exact video.") {
         item {
             Panel(Modifier.fillMaxWidth(), glow = Neon.Cyan) {
                 Column(Modifier.padding(18.dp)) {
@@ -252,7 +251,7 @@ fun VideosScreen(app: AppState) {
                             Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f).clickable { app.open(v.url) }) {
                                     Text(v.title, color = if (seen) Neon.Muted else Neon.Text, fontSize = 14.sp)
-                                    Text(if (k == "pn") "${v.channel} · learn it" else "NetworkChuck · make it stick", color = vc, fontSize = 12.sp)
+                                    Text(if (k == "pn") "${v.channel} · watch first · ${v.mins} min" else "${v.channel} · watch after · ${v.mins} min", color = vc, fontSize = 12.sp)
                                 }
                                 OutlinedButton(onClick = { app.open(v.url) }) { Text("Watch", color = vc) }
                                 Spacer(Modifier.width(10.dp))
