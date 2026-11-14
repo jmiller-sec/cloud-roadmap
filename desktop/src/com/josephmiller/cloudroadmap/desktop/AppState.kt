@@ -177,14 +177,50 @@ class AppState {
         if (updating != null) return
         updating = "Downloading ${m.version}..."
         if (isMac) {
-            // Mac: download the .dmg to Downloads, open it, and quit so the app can be replaced by dragging.
+            // Mac: download the .dmg, then a small script swaps the app in place and reopens it (no dragging).
+            // Falls back to opening the .dmg when the app isn't running from a folder we can write to.
             scope.launch(Dispatchers.IO) {
+                var manual = false
                 runCatching {
-                    val file = File(File(System.getProperty("user.home"), "Downloads"), m.name)
+                    val dir = File(System.getProperty("java.io.tmpdir"), "CloudRoadmapUpdate").apply { mkdirs() }
+                    val file = File(dir, m.name)
                     AppUpdate.downloadMsi(token(), m, file)
-                    ProcessBuilder("open", file.absolutePath).start()
+                    val exe = ProcessHandle.current().info().command().orElse("")
+                    val bundle = exe.substringBefore(".app/", "").takeIf { it.isNotBlank() }?.let { File("$it.app") }
+                    val ok = bundle != null && bundle.exists() && bundle.parentFile.canWrite() && !bundle.path.contains("/AppTranslocation/")
+                    if (ok) {
+                        val mount = File(dir, "mount")
+                        val sh = File(dir, "update.sh")
+                        sh.writeText("""
+                            |#!/bin/bash
+                            |sleep 2
+                            |APP="${bundle!!.absolutePath}"
+                            |MNT="${mount.absolutePath}"
+                            |hdiutil detach "${'$'}MNT" -quiet 2>/dev/null
+                            |mkdir -p "${'$'}MNT"
+                            |if hdiutil attach "${file.absolutePath}" -nobrowse -quiet -mountpoint "${'$'}MNT"; then
+                            |  SRC=${'$'}(ls -d "${'$'}MNT"/*.app | head -1)
+                            |  if [ -d "${'$'}SRC" ]; then
+                            |    rm -rf "${'$'}APP.old"; mv "${'$'}APP" "${'$'}APP.old"
+                            |    if ditto "${'$'}SRC" "${'$'}APP"; then rm -rf "${'$'}APP.old"; else rm -rf "${'$'}APP"; mv "${'$'}APP.old" "${'$'}APP"; fi
+                            |    xattr -dr com.apple.quarantine "${'$'}APP" 2>/dev/null
+                            |  fi
+                            |  hdiutil detach "${'$'}MNT" -quiet
+                            |fi
+                            |open "${'$'}APP"
+                        """.trimMargin())
+                        ProcessBuilder("/bin/bash", sh.absolutePath).redirectErrorStream(true).redirectOutput(File(dir, "update.log")).start()
+                    } else {
+                        manual = true
+                        val dl = File(File(System.getProperty("user.home"), "Downloads"), m.name)
+                        file.copyTo(dl, overwrite = true)
+                        ProcessBuilder("open", dl.absolutePath).start()
+                    }
                 }.onSuccess {
-                    withContext(Dispatchers.Main) { updating = "Opened ${m.name}. Drag Cloud Roadmap into Applications and choose Replace."; kotlinx.coroutines.delay(2500); exit() }
+                    withContext(Dispatchers.Main) {
+                        if (manual) { updating = "Opened ${m.name}. Drag Cloud Roadmap into Applications, choose Replace, then open it from there."; kotlinx.coroutines.delay(3500) }
+                        exit()
+                    }
                 }.onFailure {
                     withContext(Dispatchers.Main) { updating = null; notify("Update failed", it.message ?: "") }
                 }
