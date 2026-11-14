@@ -115,7 +115,8 @@ object Projects {
         Project("p_ir", "Medium", "IR playbook, tabletop, then a real run",
             "Shows you know what to do when an alert fires, and that you can stay organized under pressure. Rare in entry-level portfolios.", "Oct 2027",
             listOf(
-                "Write a 2-page incident response playbook for one scenario (phishing that leads to a stolen password)",
+                "Read one real playbook first: search \"CISA Cybersecurity Incident & Vulnerability Response Playbooks\" (free PDF on cisa.gov). Note its sections: detect, confirm, contain, clean up, recover, who to tell",
+                "Write a 2-page incident response playbook for one scenario (phishing that leads to a stolen password), using those six sections",
                 "Run a tabletop on it using a free CISA tabletop exercise package; walk a friend or family member through it, or do it solo out loud, and take notes",
                 "Run a safe simulated attack in your own lab (e.g. password spraying against your AD)",
                 "Detect it in your home SIEM and follow your playbook step by step",
