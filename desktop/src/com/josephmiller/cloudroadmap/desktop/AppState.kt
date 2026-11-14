@@ -159,6 +159,15 @@ class AppState {
         if (AppUpdate.newer(m.version, version)) { msi = m; update = m.version to "" }
     }
 
+    /** True when the opening already played today (then only the short version plays). Marks today as seen. */
+    fun splashSeenToday(): Boolean = runCatching {
+        val f = File(File(System.getProperty("user.home"), ".cloudroadmap"), "splash.txt")
+        val today = java.time.LocalDate.now().toString()
+        val seen = f.exists() && f.readText().trim() == today
+        if (!seen) { f.parentFile.mkdirs(); f.writeText(today) }
+        seen
+    }.getOrDefault(false)
+
     val isMac = System.getProperty("os.name").orEmpty().lowercase().contains("mac")
     val osName get() = if (isMac) "Mac" else "Windows"
 

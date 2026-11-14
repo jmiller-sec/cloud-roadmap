@@ -47,7 +47,12 @@ fun main() = application {
     val win = rememberWindowState(size = DpSize(1360.dp, 880.dp), position = WindowPosition(Alignment.Center))
     Window(onCloseRequest = ::exitApplication, state = win, title = "Cloud Roadmap") {
         MaterialTheme(colorScheme = darkColorScheme(primary = Neon.Cyan, background = Neon.Bg, surface = Neon.Panel)) {
-            Shell(app, { hide -> win.isMinimized = hide })
+            var splash by remember { mutableStateOf(true) }
+            val short = remember { app.splashSeenToday() }
+            Box(Modifier.fillMaxSize()) {
+                Shell(app, { hide -> win.isMinimized = hide })
+                if (splash) SplashGate(short) { splash = false }
+            }
         }
     }
 }

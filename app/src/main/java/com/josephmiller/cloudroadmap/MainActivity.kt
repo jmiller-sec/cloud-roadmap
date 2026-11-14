@@ -127,17 +127,17 @@ import java.time.format.DateTimeFormatter
 
 // ---------- palette ----------
 object Neon {
-    val Bg = Color(0xFF060B12)
-    val Panel = Color(0xFF0C1622)
-    val Panel2 = Color(0xFF112131)
-    val Line = Color(0xFF1C3146)
-    val Cyan = Color(0xFF00E5FF)
+    val Bg = Color(0xFF04070A)
+    val Panel = Color(0xFF0A1117)
+    val Panel2 = Color(0xFF0F1A21)
+    val Line = Color(0xFF17303A)
+    val Cyan = Color(0xFF35E0FF)
     val Green = Color(0xFF39FF88)
-    val Amber = Color(0xFFFFC14D)
+    val Amber = Color(0xFFFF8A2A)
     val Red = Color(0xFFFF5C7A)
     val Violet = Color(0xFFB388FF)
-    val Text = Color(0xFFE6F1FF)
-    val Muted = Color(0xFF7A8DA3)
+    val Text = Color(0xFFE8F5EE)
+    val Muted = Color(0xFF7C9388)
 }
 
 private val Mono = FontFamily.Monospace
@@ -157,7 +157,15 @@ class MainActivity : ComponentActivity() {
         startTab.intValue = intent?.getIntExtra("tab", 0) ?: 0
         setContent {
             RoadmapTheme {
-                App(version.intValue, startTab.intValue) { version.intValue++ }
+                var splash by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(true) }
+                val short = remember {
+                    val sp = getSharedPreferences("splash", MODE_PRIVATE); val today = LocalDate.now().toString()
+                    (sp.getString("day", "") == today).also { if (!it) sp.edit().putString("day", today).apply() }
+                }
+                Box(Modifier.fillMaxSize()) {
+                    App(version.intValue, startTab.intValue) { version.intValue++ }
+                    if (splash) SplashGate(short) { splash = false }
+                }
             }
         }
     }
@@ -2023,7 +2031,7 @@ private fun SettingsTab(r: Roadmap, today: LocalDate, refresh: () -> Unit, chang
                     Store.save(ctx, Roadmap(credlyUser = r.credlyUser, feedUrl = r.feedUrl)); refresh(); status = "Plan reset."
                 }
             }
-            Text("CLOUD ROADMAP v5.10 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
+            Text("CLOUD ROADMAP v6.0 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
                 textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 18.dp))
         }
     }
