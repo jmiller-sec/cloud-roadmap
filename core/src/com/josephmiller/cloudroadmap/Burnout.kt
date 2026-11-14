@@ -32,7 +32,8 @@ object Burnout {
     }
 
     fun capMin(d: LocalDate, r: Roadmap): Int {
-        val base = if (sleepLevel(r, d) == Sleep.SHORT && d.dayOfWeek != DayOfWeek.SATURDAY) minOf(baseCapMin(d), 90) else baseCapMin(d)
+        if (d in Gate.WARMUP) return Gate.WARMUP_CAP
+        val base = if (Gate.score(r, d) == 2 && d.dayOfWeek != DayOfWeek.SATURDAY) minOf(baseCapMin(d), 90) else baseCapMin(d)
         return base + if ("override:$d" in r.studyDone) OVERRIDE_MIN else 0
     }
 
@@ -50,10 +51,12 @@ object Burnout {
         val m = sleepMin(r, d) ?: return null
         if (!isStudyDay(d) || ThmPlan.isOffWeek(d)) return "Slept ${fmtSleep(m)}"
         val sat = d.dayOfWeek == DayOfWeek.SATURDAY
-        return when (sleepLevel(r, d)!!) {
-            Sleep.GOOD -> "Slept ${fmtSleep(m)} · full plan today"
-            Sleep.SHORT -> if (sat) "Slept ${fmtSleep(m)} · Saturday drops to 2 bundles" else "Slept ${fmtSleep(m)} · cap is 90 min tonight"
-            Sleep.LOW -> if (sat) "Slept ${fmtSleep(m)} · just 1 bundle today" else "Slept ${fmtSleep(m)} · light night: lesson videos + quick check only"
+        val tail = if (Gate.checkin(r, d) == null) " (check in to confirm)" else ""
+        return when (Gate.score(r, d)) {
+            3 -> "Slept ${fmtSleep(m)} · full plan today$tail"
+            2 -> (if (sat) "Slept ${fmtSleep(m)} · Saturday drops to 2 bundles" else "Slept ${fmtSleep(m)} · cap is 90 min tonight") + tail
+            1 -> (if (sat) "Slept ${fmtSleep(m)} · just 1 bundle today" else "Slept ${fmtSleep(m)} · light night: lesson videos + quick check only") + tail
+            else -> "Slept ${fmtSleep(m)} · rest day (check-in)"
         }
     }
 
@@ -94,10 +97,11 @@ object Burnout {
             DayOfWeek.SATURDAY -> if (m == Mode.B) 2 else 3
             else -> 0
         }
-        // Last night's sleep can only make the day lighter, never heavier.
-        return when (sleepLevel(r, d)) {
-            Sleep.LOW -> if (d.dayOfWeek == DayOfWeek.SATURDAY) minOf(base, 1) else 0
-            Sleep.SHORT -> if (d.dayOfWeek == DayOfWeek.SATURDAY) minOf(base, 2) else base
+        // Sleep and the check-in can only make the day lighter, never heavier (lower one wins, see Gate.score).
+        return when (Gate.score(r, d)) {
+            0 -> 0
+            1 -> if (d.dayOfWeek == DayOfWeek.SATURDAY) minOf(base, 1) else 0
+            2 -> if (d.dayOfWeek == DayOfWeek.SATURDAY) minOf(base, 2) else base
             else -> base
         }
     }

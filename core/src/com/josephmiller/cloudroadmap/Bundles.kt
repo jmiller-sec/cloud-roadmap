@@ -19,7 +19,9 @@ object Bundles {
     private fun room(code: String) = "https://tryhackme.com/room/$code"
     private fun yt(q: String) = "https://www.youtube.com/results?search_query=" + java.net.URLEncoder.encode(q, "UTF-8")
 
-    private fun warm() = Section("warm", "Warm-up: 3 quick questions on last time", 5, listOf("Tap the check to start. Any score counts; it's just to wake the memory up."))
+    private fun warm() = Section("warm", "Recall check: pass 2 of 3 on last time to unlock", 5, listOf(
+        "Tap to take 3 questions on the last bundle. You need 2 right to unlock this bundle.",
+        "Miss it: you get new questions. Miss twice: rewatch the last lesson's video first, then try again."))
     private fun sophia(name: String, mins: Int, extra: List<String> = emptyList(), shot: String = "Your score on this piece") =
         Section("sophia", "Sophia · $name", mins,
             listOf("Open CS1015 in Sophia and go to: $name.") + extra + listOf("Finish it and submit."), listOf(shot), SOPHIA)

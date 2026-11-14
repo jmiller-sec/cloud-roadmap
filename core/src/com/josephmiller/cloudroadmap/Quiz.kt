@@ -77,5 +77,5 @@ object Quiz {
     }
 
     /** Quick check after a lesson video: 3 questions on that lesson's unit. */
-    fun afterVideo(b: StudyBundle, which: String, day: LocalDate) = pick(b.unit, 3, day, "vid:${b.n}:$which")
+    fun afterVideo(b: StudyBundle, which: String, day: LocalDate, attempt: Int = 0) = pick(b.unit, 3, day, "vid:${b.n}:$which:$attempt")
 }

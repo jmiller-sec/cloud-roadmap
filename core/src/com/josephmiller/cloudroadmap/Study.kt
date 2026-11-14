@@ -40,6 +40,9 @@ object StudyPlan {
         val mode = Burnout.mode(r, date)
         val csDone = Bundles.next(r).isEmpty()
 
+        if (date in Gate.WARMUP) return Gate.warmupTasks(r, date)
+        if (Gate.checkin(r, date) != null && Gate.score(r, date) == 0)
+            return listOf(DayTask("$date|rest", "rest", "Rest day", "Your check-in says you're running on empty. Nothing today, and nothing piles up.", null))
         setupTasks[date]?.forEach { (k, t, u) -> out += DayTask(k, "todo", "Setup · 10 min, then Bundle 1", t, null, u) }
         bundlesToday(date, r).forEach { b -> b.sections.forEach { s -> out += sectionTask(b, s) } }
 

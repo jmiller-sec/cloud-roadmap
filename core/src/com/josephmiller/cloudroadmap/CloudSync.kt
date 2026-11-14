@@ -39,6 +39,7 @@ object Merge {
         older.energy.forEach { (k, v) -> r.energy.putIfAbsent(k, v) }
         older.sleep.forEach { (k, v) -> r.sleep[k] = maxOf(v, r.sleep[k] ?: 0) }
         if (r.sleepStatus.isBlank()) r.sleepStatus = older.sleepStatus
+        older.checkin.forEach { (k, v) -> r.checkin.putIfAbsent(k, v) }
         older.portfolio.forEach { (k, v) -> r.portfolio.putIfAbsent(k, v) }
         older.studyMin.forEach { (k, v) -> r.studyMin[k] = maxOf(v, r.studyMin[k] ?: 0) }
         older.alertLog.forEach { (k, v) -> r.alertLog[k] = maxOf(v, r.alertLog[k] ?: 0) }

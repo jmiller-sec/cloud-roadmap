@@ -159,13 +159,29 @@ fun WtdWide(app: AppState, hide: (Boolean) -> Unit) {
     var pendingWarm by remember { mutableStateOf<DayTask?>(null) }
     var noteFor by remember { mutableStateOf<Pair<StudyBundle, DayTask>?>(null) }
 
-    fun startTimer() { if (!capped) app.change { Burnout.startTimer(it, today, System.currentTimeMillis()) } }
+    var pendingGate by remember { mutableStateOf<StudyBundle?>(null) }
+    var hint by remember { mutableStateOf<String?>(null) }
+    val needsCheckin = Gate.needsCheckin(r, today) && today == LocalDate.now()
+    fun startTimer() {
+        if (needsCheckin) { hint = "Check in first (right side): how do you feel right now?"; return }
+        if (!capped) app.change { Burnout.startTimer(it, today, System.currentTimeMillis()) }
+    }
     fun tap(b: StudyBundle, task: DayTask) {
         if (task.key in r.studyDone) return app.change { it.toggleTask(task, today) }
         if (capped || late) return
+        if (needsCheckin) { hint = "Check in first (right side): how do you feel right now?"; return }
+        val sec = task.key.substringAfterLast(":")
+        if (sec != "warm" && !Gate.passed(r, b.n)) { hint = "Locked. Pass the recall check at the top of bundle ${b.n} first."; return }
+        if (sec == "warm" && Gate.needsReview(r, b.n)) {
+            val v = Gate.reviewVideo(b.n)
+            app.change { Gate.markReviewed(it, b.n) }
+            v?.let { app.open(it.url) }
+            hint = "Two misses: rewatch \"${v?.title ?: "the last lesson"}\", then click the recall check again."; return
+        }
+        hint = null
         if (r.timerStart <= 0) startTimer()
-        when (task.key.substringAfterLast(":")) {
-            "warm" -> { pendingWarm = task; quiz = "warm" to Quiz.pick((Bundles.all.getOrNull(b.n - 2) ?: b).unit, 3, today, "warm${b.n}") }
+        when (sec) {
+            "warm" -> { pendingWarm = task; pendingGate = b; quiz = "gate" to Gate.questions(b.n, today, r) }
             "note" -> noteFor = b to task
             else -> app.change { it.toggleTask(task, today) }
         }
@@ -192,18 +208,20 @@ fun WtdWide(app: AppState, hide: (Boolean) -> Unit) {
                         color = if (real.isNotEmpty() && doneN == real.size) Neon.Green else Neon.Text, fontSize = 22.sp, fontWeight = FontWeight.Black)
                     if (real.isNotEmpty()) { Spacer(Modifier.height(10.dp)); Bar(doneN.toFloat() / real.size, Neon.Cyan, Modifier.fillMaxWidth()) }
                     if (mode == Mode.B) Text("Your last two energy checks were low, so Saturday is 2 bundles this week.", color = Neon.Amber, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
-                    others.forEach { o -> OtherTaskRow(app, o, today) }
+                    others.forEach { o -> OtherTaskRow(app, o, today) { if (needsCheckin) "Check in first (right side): how do you feel right now?" else null } }
+                    hint?.let { Text(it, color = Neon.Amber, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp)) }
                 }
             }
             bundles.forEach { b ->
                 Spacer(Modifier.height(16.dp))
-                BundleCard(app, b, locked = capped || late, onTap = { task -> tap(b, task) }, hide = hide)
+                BundleCard(app, b, locked = capped || late || needsCheckin, onTap = { task -> tap(b, task) }, hide = hide)
             }
             Spacer(Modifier.height(24.dp))
         }
         // ---- right: timer, energy, week, portfolio ----
         Column(Modifier.weight(0.38f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Spacer(Modifier.height(64.dp))
+            if (Gate.isPlanned(today) && today == LocalDate.now()) CheckInCard(app, today)
             TimerCard(app, today, nowMs, capped, late, onStart = { startTimer() }, onOverride = { quiz = "override" to Quiz.pick(Burnout.currentUnit(r), 5, today, "override") })
             if (Burnout.isStudyDay(today) && real.any { it.stream != "todo" }) EnergyCard(app, today)
             WeekStrip(app, today)
@@ -212,12 +230,19 @@ fun WtdWide(app: AppState, hide: (Boolean) -> Unit) {
     }
 
     quiz?.let { (purpose, qs) ->
-        QuizDialog(if (purpose == "override") "Prove you're sharp: 5/5 to keep going" else "Warm-up: last time's topic", qs,
+        QuizDialog(if (purpose == "override") "Prove you're sharp: 5/5 to keep going" else "Recall check: 2 of 3 to unlock", qs,
             onDone = { score ->
+                if (purpose == "gate") {
+                    pendingGate?.let { b ->
+                        app.change { Gate.record(it, b, score, today) }
+                        hint = if (score >= Gate.PASS) "$score/3. Bundle ${b.n} unlocked, go." else if (Gate.needsReview(app.r, b.n)) "$score/3. Locked. Rewatch the last lesson's video, then try again." else "$score/3. Locked. Try again with new questions."
+                    }
+                    pendingGate = null; pendingWarm = null; quiz = null; return@QuizDialog
+                }
                 if (purpose == "override") app.change { Burnout.recordOverride(it, today, score, qs.size) }
                 else pendingWarm?.let { task -> app.change { it.toggleTask(task, today) } }
                 pendingWarm = null; quiz = null
-            }, onCancel = { pendingWarm = null; quiz = null })
+            }, onCancel = { pendingWarm = null; pendingGate = null; quiz = null })
     }
     noteFor?.let { (b, task) ->
         NoteDialog(b.noteHint, r.portfolio[b.n.toString()] ?: "",
@@ -227,8 +252,9 @@ fun WtdWide(app: AppState, hide: (Boolean) -> Unit) {
 }
 
 @Composable
-fun OtherTaskRow(app: AppState, t: DayTask, today: LocalDate) {
+fun OtherTaskRow(app: AppState, t: DayTask, today: LocalDate, blocked: () -> String? = { null }) {
     val done = app.r.isDone(t)
+    var msg by remember(t.key) { mutableStateOf<String?>(null) }
     val c = when (t.stream) { "job" -> Color(0xFFFF8A65); "video" -> Color(0xFF4DA3FF); "thm" -> Neon.Green; "course" -> Neon.Amber; "lab" -> Neon.Violet; "todo" -> Color(0xFFFF7AC6); else -> Neon.Muted }
     Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
@@ -236,8 +262,12 @@ fun OtherTaskRow(app: AppState, t: DayTask, today: LocalDate) {
             Text(t.task, color = if (done) Neon.Muted else Neon.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
             t.url?.let { u -> Text("▶ Open", color = c, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp).clickable { app.open(u) }) }
         }
-        if (t.stream != "rest") { Spacer(Modifier.width(12.dp)); CheckBubble(done, false, c) { app.change { it.toggleTask(t, today) } } }
+        if (t.stream != "rest") { Spacer(Modifier.width(12.dp)); CheckBubble(done, false, c) {
+            val b = if (done) null else blocked()
+            if (b != null) msg = b else { msg = null; app.change { it.toggleTask(t, today) } }
+        } }
     }
+    msg?.let { Text(it, color = Neon.Amber, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp)) }
 }
 
 @Composable
@@ -286,7 +316,8 @@ fun BundleCard(app: AppState, b: StudyBundle, locked: Boolean, onTap: (DayTask) 
                         }
                     }
                     Spacer(Modifier.width(14.dp))
-                    CheckBubble(sDone, locked && !sDone, c) { onTap(task) }
+                    val gated = s.id != "warm" && !Gate.passed(r, b.n)
+                    CheckBubble(sDone, (locked || gated) && !sDone, c) { onTap(task) }
                 }
             }
         }
@@ -328,6 +359,30 @@ fun TimerCard(app: AppState, today: LocalDate, nowMs: Long, capped: Boolean, lat
                     !capped && !late -> Button(onClick = onStart, colors = ButtonDefaults.buttonColors(containerColor = Neon.Cyan, contentColor = Neon.Bg)) { Text("Start") }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun CheckInCard(app: AppState, today: LocalDate) {
+    val r = app.r
+    val cur = Gate.checkin(r, today)
+    val c = if (cur == null) Neon.Amber else when (Gate.score(r, today)) { 3 -> Neon.Green; 2 -> Neon.Cyan; 1 -> Neon.Amber; else -> Neon.Violet }
+    Panel(Modifier.fillMaxWidth(), glow = c) {
+        Column(Modifier.padding(20.dp)) {
+            Label(if (cur == null) "Check in before you start" else "Today's check-in", c)
+            Text(if (cur == null) "How do you feel right now? Nothing unlocks until you answer." else "Locked in for today.",
+                color = Neon.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp, bottom = 10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                listOf(1 to "😵", 2 to "😩", 3 to "😐", 4 to "🙂", 5 to "💪").forEach { (n, e) ->
+                    val sel = cur == n
+                    Box(Modifier.size(48.dp).clip(CircleShape).background(if (sel) c.copy(alpha = 0.25f) else Color.Transparent)
+                        .border(1.dp, if (sel) c else Neon.Line, CircleShape)
+                        .clickable(enabled = cur == null) { app.change { Gate.setCheckin(it, today, n) } },
+                        contentAlignment = Alignment.Center) { Text(e, fontSize = 22.sp) }
+                }
+            }
+            Gate.why(r, today)?.let { Text(it, color = c, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp)) }
         }
     }
 }

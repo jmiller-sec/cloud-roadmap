@@ -6,8 +6,10 @@ import java.time.LocalDate
 
 class BurnoutTest {
     private fun d(s: String) = LocalDate.parse(s)
-    private fun finish(r: Roadmap, b: StudyBundle, day: LocalDate) =
+    private fun finish(r: Roadmap, b: StudyBundle, day: LocalDate) {
+        if (!Gate.passed(r, b.n)) Gate.record(r, b, 3, day) // pass the recall gate first
         b.sections.forEach { s -> if (b.key(s.id) !in r.studyDone) r.toggleTask(StudyPlan.sectionTask(b, s), day) }
+    }
 
     @Test fun planCIsOneOneThreeAndOffDaysStayOff() {
         val r = Roadmap()
@@ -49,6 +51,53 @@ class BurnoutTest {
         assertTrue(Burnout.isRestWeek(r, d("2027-01-05")))
     }
 
+    @Test fun sleepAndCheckinMustAgreeLowerWins() {
+        val r = Roadmap(); val tue = d("2026-12-08"); val sat = d("2026-12-12")
+        assertTrue(Gate.needsCheckin(r, tue)); assertFalse(Gate.needsCheckin(r, d("2026-12-09")))
+        // Feels great but slept 5h: sleep wins.
+        r.sleep[tue.toString()] = 300; Gate.setCheckin(r, tue, 5)
+        assertEquals(1, Gate.score(r, tue)); assertEquals(0, Burnout.bundlesFor(r, tue))
+        // Slept 8h but feels drained (2): check-in wins.
+        r.sleep[sat.toString()] = 480; Gate.setCheckin(r, sat, 2)
+        assertEquals(1, Burnout.bundlesFor(r, sat))
+        // Both good = full day.
+        Gate.setCheckin(r, sat, 4); assertEquals(3, Burnout.bundlesFor(r, sat))
+        // No watch data after check-in = reduced, not full.
+        val thu = d("2026-12-10"); Gate.setCheckin(r, thu, 5)
+        assertEquals(2, Gate.score(r, thu)); assertEquals(90, Burnout.capMin(thu, r))
+        // Check-in 1 = rest day no matter how you slept.
+        r.sleep[thu.toString()] = 500; Gate.setCheckin(r, thu, 1)
+        assertEquals(listOf("rest"), StudyPlan.tasksFor(thu, r).map { it.stream })
+        assertEquals(4, Roadmap.fromJson(r.toJson()).checkin[sat.toString()])
+    }
+
+    @Test fun recallGateLocksBundleUntilPassed() {
+        val r = Roadmap(); val day = d("2026-12-03")
+        val b1 = Bundles.all[0]; val b2 = Bundles.all[1]
+        assertTrue(Gate.passed(r, 1)) // nothing to recall before lesson 1
+        finish(r, b1, d("2026-12-01"))
+        assertFalse(Gate.passed(r, 2))
+        val sophia = StudyPlan.sectionTask(b2, b2.sections.first { it.id == "sophia" })
+        r.toggleTask(sophia, day); assertFalse(sophia.key in r.studyDone) // locked
+        assertFalse(Gate.record(r, b2, 1, day)); assertFalse(Gate.needsReview(r, 2))
+        assertNotEquals(Gate.questions(2, day, Roadmap()).map { it.q }, Gate.questions(2, day, r).map { it.q }) // new questions on retry
+        assertFalse(Gate.record(r, b2, 0, day)); assertTrue(Gate.needsReview(r, 2)) // 2 misses: rewatch first
+        Gate.markReviewed(r, 2); assertFalse(Gate.needsReview(r, 2))
+        assertTrue(Gate.record(r, b2, 2, day)); assertTrue(Gate.passed(r, 2))
+        r.toggleTask(sophia, day); assertTrue(sophia.key in r.studyDone)
+    }
+
+    @Test fun warmupSaturdaysNeedFullDayForHandsOn() {
+        val r = Roadmap(); val s1 = d("2026-11-14")
+        assertTrue(Gate.needsCheckin(r, s1)); assertEquals(60, Burnout.capMin(s1, r))
+        Gate.setCheckin(r, s1, 5) // no sleep data: videos only
+        assertEquals(listOf("todo:warm1_vid"), StudyPlan.tasksFor(s1, r).filter { it.stream == "todo" }.map { it.key })
+        r.sleep[s1.toString()] = 450
+        assertEquals(listOf("todo:warm1_vid", "todo:warm1_pt"), StudyPlan.tasksFor(s1, r).filter { it.stream == "todo" }.map { it.key })
+        assertEquals(0, Burnout.bundlesFor(r, s1))
+        assertFalse(Gate.videoUnlocked(r, 2)); r.studyDone.add("vid:1:pn"); assertTrue(Gate.videoUnlocked(r, 2))
+    }
+
     @Test fun missedDaysNeverStack() {
         val r = Roadmap()
         // Skip Tue + Thu entirely: Saturday still shows exactly 3, starting from bundle 1.
@@ -67,7 +116,7 @@ class BurnoutTest {
 
     @Test fun nothingBeforeDec1ThenSetupPlusBundle1() {
         val r = Roadmap()
-        (0..19L).map { d("2026-11-11").plusDays(it) }.forEach {
+        (0..19L).map { d("2026-11-11").plusDays(it) }.filter { it !in Gate.WARMUP }.forEach {
             assertEquals(it.toString(), listOf("rest"), StudyPlan.tasksFor(it, r).map { t -> t.stream })
         }
         val dec1 = StudyPlan.tasksFor(d("2026-12-01"), r)
@@ -116,7 +165,7 @@ class BurnoutTest {
         assertTrue(Burnout.capReached(r, tue, t0))
         Burnout.recordOverride(r, tue, 4, 5) // not perfect: no extra time, no retry
         assertTrue(Burnout.capReached(r, tue, t0)); assertTrue(Burnout.overrideUsed(r, tue))
-        val sat = d("2026-11-14")
+        val sat = d("2026-12-05")
         r.studyMin[sat.toString()] = 360
         Burnout.recordOverride(r, sat, 5, 5)
         assertFalse(Burnout.capReached(r, sat, t0))

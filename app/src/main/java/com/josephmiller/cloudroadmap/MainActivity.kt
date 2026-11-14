@@ -838,6 +838,7 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
     var quiz by remember { mutableStateOf<Pair<String, List<Q>>?>(null) }
     var noteFor by remember { mutableStateOf<Pair<StudyBundle, DayTask>?>(null) }
     var pendingWarm by remember { mutableStateOf<DayTask?>(null) }
+    var pendingGate by remember { mutableStateOf<StudyBundle?>(null) }
     val sat = ThmPlan.saturdayOf(today)
     val weekStart = sat.minusDays(4) // Tue
     val monthDays = r.studyDaysThisMonth(today)
@@ -848,7 +849,9 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
     var lastDone by remember { mutableIntStateOf(bundlesDone) }
     var burst by remember { mutableIntStateOf(0) }
     LaunchedEffect(bundlesDone) { if (bundlesDone > lastDone) burst++; lastDone = bundlesDone }
+    val needsCheckin = Gate.needsCheckin(r, today) && today == LocalDate.now()
     fun startTimer() {
+        if (needsCheckin) return toast("Check in first: how do you feel right now?")
         if (capped) return toast("Done for today. The cap is the point.")
         change { Burnout.startTimer(it, today, System.currentTimeMillis()) }
         val left = Burnout.capMin(today, r) - Burnout.minutesOn(r, today, System.currentTimeMillis())
@@ -861,9 +864,18 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
         if (done) return change { it.toggleTask(t, today) }
         if (capped) return toast("Today's cap is reached. This waits for next time.")
         if (lateStart) return toast("It's after 8 pm. This bundle waits for next time.")
+        if (needsCheckin) return toast("Check in first: how do you feel right now?")
+        val sec = t.key.substringAfterLast(":")
+        if (sec != "warm" && !Gate.passed(r, b.n)) return toast("Locked. Pass the recall check at the top of this bundle first.")
+        if (sec == "warm" && Gate.needsReview(r, b.n)) {
+            val v = Gate.reviewVideo(b.n)
+            change { Gate.markReviewed(it, b.n) }
+            v?.let { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it.url))) } }
+            return toast("Two misses: rewatch \"${v?.title ?: "the last lesson"}\", then tap the recall check again.")
+        }
         if (!running) startTimer()
-        when (t.key.substringAfterLast(":")) {
-            "warm" -> { pendingWarm = t; quiz = "warm" to Quiz.pick((Bundles.all.getOrNull(b.n - 2) ?: b).unit, 3, today, "warm${b.n}") }
+        when (sec) {
+            "warm" -> { pendingWarm = t; pendingGate = b; quiz = "gate" to Gate.questions(b.n, today, r) }
             "note" -> noteFor = b to t
             else -> change { it.toggleTask(t, today) }
         }
@@ -875,6 +887,7 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
             ScreenHeader("WTD", "What to do · ${today.format(dayFmt)}", onSettings)
             com.josephmiller.cloudroadmap.sleep.SleepCard()
             Spacer(Modifier.height(12.dp))
+            if (Gate.isPlanned(today) && today == LocalDate.now()) { CheckInCard(r, today, change); Spacer(Modifier.height(12.dp)) }
 
             Panel(Modifier.fillMaxWidth(), glow = (if (allDone) Neon.Green else Neon.Cyan).copy(alpha = 0.5f)) {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
@@ -906,7 +919,10 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
                         if (!Burnout.overrideUsed(r, today)) Text("Keep me on Plan C (pass a 5/5 quiz) ›", color = Neon.Amber, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(top = 6.dp).clickable { quiz = "override" to Quiz.pick(Burnout.currentUnit(r), 5, today, "override") })
                     }
-                    others.forEach { t -> TaskRow(t, r.isDone(t)) { change { it.toggleTask(t, today) } } }
+                    others.forEach { t -> TaskRow(t, r.isDone(t)) {
+                        if (needsCheckin && t.stream != "rest" && !r.isDone(t)) toast("Check in first: how do you feel right now?")
+                        else change { it.toggleTask(t, today) }
+                    } }
                 }
             }
 
@@ -968,7 +984,7 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
                         Text("📁 Screenshots go in ${b.folder}", color = Neon.Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                         b.sections.forEach { s ->
                             val t = StudyPlan.sectionTask(b, s)
-                            SectionRow(s, t.key in r.studyDone, locked = (capped || lateStart) && t.key !in r.studyDone) { tapSection(b, t) }
+                            SectionRow(s, t.key in r.studyDone, locked = ((capped || lateStart || needsCheckin) || (s.id != "warm" && !Gate.passed(r, b.n))) && t.key !in r.studyDone) { tapSection(b, t) }
                         }
                     }
                 }
@@ -1089,20 +1105,52 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
     }
 
     quiz?.let { (purpose, qs) ->
-        QuizDialog(if (purpose == "override") "Prove you're sharp: 5/5 to keep going" else "Warm-up: last time's topic", qs,
+        QuizDialog(if (purpose == "override") "Prove you're sharp: 5/5 to keep going" else "Recall check: 2 of 3 to unlock", qs,
             onDone = { score ->
+                if (purpose == "gate") {
+                    val b = pendingGate
+                    if (b != null) {
+                        var ok = false
+                        change { ok = Gate.record(it, b, score, today) }
+                        toast(if (score >= Gate.PASS) "$score/3. Unlocked, go." else if (Gate.needsReview(Store.load(ctx), b.n)) "$score/3. Locked. Rewatch the last lesson's video, then try again." else "$score/3. Locked. Try again with new questions.")
+                    }
+                    pendingGate = null; pendingWarm = null; quiz = null; return@QuizDialog
+                }
                 if (purpose == "override") {
                     change { Burnout.recordOverride(it, today, score, qs.size) }
                     toast(if (score == qs.size) "5/5. You get 30 more minutes and Plan C this week." else "$score/${qs.size}. Your brain's done for today. That's the signal, not a failure.")
                 } else pendingWarm?.let { t -> change { it.toggleTask(t, today) } }
                 pendingWarm = null; quiz = null
             },
-            onCancel = { pendingWarm = null; quiz = null })
+            onCancel = { pendingWarm = null; pendingGate = null; quiz = null })
     }
     noteFor?.let { (b, t) ->
         NoteDialog(b.noteHint, r.portfolio[b.n.toString()] ?: "",
             onSave = { text -> change { it.portfolio[b.n.toString()] = text.trim(); it.toggleTask(t, today) }; noteFor = null },
             onCancel = { noteFor = null })
+    }
+}
+
+@Composable
+private fun CheckInCard(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> Unit) {
+    val cur = Gate.checkin(r, today)
+    val c = if (cur == null) Neon.Amber else when (Gate.score(r, today)) { 3 -> Neon.Green; 2 -> Neon.Cyan; 1 -> Neon.Amber; else -> Neon.Violet }
+    Panel(Modifier.fillMaxWidth(), glow = c.copy(alpha = 0.6f)) {
+        Column(Modifier.padding(16.dp)) {
+            Label(if (cur == null) "Check in before you start" else "Today's check-in", c)
+            Text(if (cur == null) "How do you feel right now? Nothing unlocks until you answer." else "Locked in for today.",
+                color = Neon.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp, bottom = 10.dp))
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                listOf(1 to "😵", 2 to "😩", 3 to "😐", 4 to "🙂", 5 to "💪").forEach { (n, e) ->
+                    val sel = cur == n
+                    Box(Modifier.size(48.dp).clip(CircleShape).background(if (sel) c.copy(alpha = 0.25f) else Color.Transparent)
+                        .border(1.dp, if (sel) c else Neon.Line, CircleShape)
+                        .clickable(enabled = cur == null) { change { Gate.setCheckin(it, today, n) } },
+                        contentAlignment = Alignment.Center) { Text(e, fontSize = 22.sp) }
+                }
+            }
+            Gate.why(r, today)?.let { Text(it, color = c, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp)) }
+        }
     }
 }
 
@@ -1288,7 +1336,7 @@ private fun VideosTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) 
                     Text("① Before: the learn-it video on the commute to work, the morning of that lesson.", color = Neon.Text, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
                     Text("② After: NetworkChuck on the ride home or your next day off, to lock it in.", color = Neon.Text, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
                     Text("Not during: it eats your 2-hour study cap.", color = Neon.Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
-                    Text("Check a video off and you get a 3-question quick check.", color = Neon.Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                    Text("Check a video off for a 3-question quick check. 2 of 3 counts it; the next lesson stays locked until you pass.", color = Neon.Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                 }
             }
         }
@@ -1477,9 +1525,11 @@ private fun LessonVideos(r: Roadmap, change: ((Roadmap) -> Unit) -> Unit) {
     var quiz by remember { mutableStateOf<Triple<StudyBundle, LessonPair, String>?>(null) }
     quiz?.let { (b, pair, k) ->
         val v = if (k == "pn") pair.pn else pair.chuck
-        QuizDialog("Quick check: ${v.title}", Quiz.afterVideo(b, k, LocalDate.now()),
+        QuizDialog("Quick check: ${v.title}", Quiz.afterVideo(b, k, LocalDate.now(), Gate.videoFails(r, pair.key(k))),
             onDone = { score ->
-                change { Videos.toggle(it, pair.key(k)); it.studyDone.add("quiz:${pair.key(k)}:$score") }
+                if (score >= Gate.PASS) change { it.studyDone.add(pair.key(k)); it.studyDone.add("quiz:${pair.key(k)}:$score") }
+                else change { it.studyDone.add("vidfail:${pair.key(k)}:${Gate.videoFails(it, pair.key(k)) + 1}") }
+                android.widget.Toast.makeText(ctx, if (score >= Gate.PASS) "$score/3. Counted." else "$score/3. Not counted yet. Rewatch it and try again.", android.widget.Toast.LENGTH_LONG).show()
                 quiz = null
             },
             onCancel = { quiz = null })
@@ -1500,13 +1550,14 @@ private fun LessonVideos(r: Roadmap, change: ((Roadmap) -> Unit) -> Unit) {
                         if (isNext) { Pill("NEXT", Neon.Cyan); Spacer(Modifier.width(6.dp)) }
                         Text("$watched/2", color = c, fontFamily = Mono, fontSize = 11.sp)
                     }
+                    if (expanded && !Gate.videoUnlocked(r, b.n)) Text("🔒 Pass lesson ${b.n - 1}'s learn-it quick check (2 of 3) to unlock.", color = Neon.Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
                     if (expanded) listOf("pn" to pair.pn, "nc" to pair.chuck).forEach { (k, v) ->
                         val seen = pair.key(k) in r.studyDone
                         val vc = if (k == "pn") Neon.Cyan else Neon.Amber
                         Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 Modifier.size(22.dp).clip(CircleShape).background(if (seen) vc else Color.Transparent).border(1.5.dp, vc, CircleShape)
-                                    .clickable { if (seen) change { Videos.toggle(it, pair.key(k)) } else quiz = Triple(b, pair, k) },
+                                    .clickable { if (!seen) { if (Gate.videoUnlocked(r, b.n)) quiz = Triple(b, pair, k) else android.widget.Toast.makeText(ctx, "Locked. Pass lesson ${b.n - 1}'s learn-it quick check first.", android.widget.Toast.LENGTH_LONG).show() } },
                                 contentAlignment = Alignment.Center,
                             ) { if (seen) Icon(Icons.Filled.Check, null, tint = Neon.Bg, modifier = Modifier.size(14.dp)) }
                             Spacer(Modifier.width(10.dp))
@@ -1972,7 +2023,7 @@ private fun SettingsTab(r: Roadmap, today: LocalDate, refresh: () -> Unit, chang
                     Store.save(ctx, Roadmap(credlyUser = r.credlyUser, feedUrl = r.feedUrl)); refresh(); status = "Plan reset."
                 }
             }
-            Text("CLOUD ROADMAP v5.8 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
+            Text("CLOUD ROADMAP v5.9 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
                 textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 18.dp))
         }
     }

@@ -204,11 +204,14 @@ fun VideosScreen(app: AppState) {
     val r = app.r
     val nextN = Bundles.next(r).firstOrNull()?.n
     var quiz by remember { mutableStateOf<Triple<StudyBundle, LessonPair, String>?>(null) }
+    var vidMsg by remember { mutableStateOf<String?>(null) }
     quiz?.let { (b, pair, k) ->
         val v = if (k == "pn") pair.pn else pair.chuck
-        QuizDialog("Quick check: ${v.title}", Quiz.afterVideo(b, k, LocalDate.now()),
+        QuizDialog("Quick check: ${v.title}", Quiz.afterVideo(b, k, LocalDate.now(), Gate.videoFails(r, pair.key(k))),
             onDone = { score ->
-                app.change { Videos.toggle(it, pair.key(k)); it.studyDone.add("quiz:${pair.key(k)}:$score") }
+                if (score >= Gate.PASS) app.change { it.studyDone.add(pair.key(k)); it.studyDone.add("quiz:${pair.key(k)}:$score") }
+                else app.change { it.studyDone.add("vidfail:${pair.key(k)}:${Gate.videoFails(it, pair.key(k)) + 1}") }
+                vidMsg = if (score >= Gate.PASS) "$score/3. Counted." else "$score/3. Not counted yet. Rewatch it and try again."
                 quiz = null
             },
             onCancel = { quiz = null })
@@ -221,7 +224,8 @@ fun VideosScreen(app: AppState) {
                     Text("① Before: the learn-it video on the commute to work, the morning of that lesson.", color = Neon.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp))
                     Text("② After: NetworkChuck on the ride home or your next day off, to lock it in.", color = Neon.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
                     Text("Not during: it eats your 2-hour study cap.", color = Neon.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
-                    Text("Check a video off and you get a 3-question quick check.", color = Neon.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+                    Text("Check a video off for a 3-question quick check. 2 of 3 counts it; the next lesson stays locked until you pass.", color = Neon.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+                    vidMsg?.let { Text(it, color = Neon.Amber, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp)) }
                 }
             }
         }
@@ -241,6 +245,7 @@ fun VideosScreen(app: AppState) {
                             if (isNext) { Pill("next", Neon.Cyan); Spacer(Modifier.width(8.dp)) }
                             Text("$watched/2", color = if (watched == 2) Neon.Green else Neon.Muted, fontSize = 12.sp)
                         }
+                        if (expanded && !Gate.videoUnlocked(r, b.n)) Text("🔒 Pass lesson ${b.n - 1}'s learn-it quick check (2 of 3) to unlock.", color = Neon.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
                         if (expanded) listOf("pn" to pair.pn, "nc" to pair.chuck).forEach { (k, v) ->
                             val seen = pair.key(k) in r.studyDone
                             val vc = if (k == "pn") Neon.Cyan else Neon.Amber
@@ -251,7 +256,7 @@ fun VideosScreen(app: AppState) {
                                 }
                                 OutlinedButton(onClick = { app.open(v.url) }) { Text("Watch", color = vc) }
                                 Spacer(Modifier.width(10.dp))
-                                CheckBubble(seen, false, vc, 28.dp) { if (seen) app.change { Videos.toggle(it, pair.key(k)) } else quiz = Triple(b, pair, k) }
+                                CheckBubble(seen, !seen && !Gate.videoUnlocked(r, b.n), vc, 28.dp) { if (!seen && Gate.videoUnlocked(r, b.n)) quiz = Triple(b, pair, k) }
                             }
                         }
                     }
