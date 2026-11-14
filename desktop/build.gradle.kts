@@ -22,7 +22,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
 }
 
-val appVersion = (project.findProperty("appVersion") as String?) ?: "6.0.0"
+val appVersion = (project.findProperty("appVersion") as String?) ?: "6.1.0"
 
 compose.desktop {
     application {
@@ -63,4 +63,10 @@ tasks.register<JavaExec>("splashSnap") {
     classpath = sourceSets["test"].runtimeClasspath
     mainClass.set("com.josephmiller.cloudroadmap.desktop.SplashSnapKt")
     args(layout.buildDirectory.dir("splash").get().asFile.absolutePath)
+}
+
+tasks.register<JavaExec>("iconSnap") {
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("com.josephmiller.cloudroadmap.desktop.IconSnapKt")
+    args(layout.buildDirectory.dir("icon").get().asFile.absolutePath)
 }

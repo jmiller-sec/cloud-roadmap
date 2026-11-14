@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.text.TextMeasurer
@@ -85,6 +86,30 @@ fun CyberFoxSplash(tMs: Float, modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * The app icon: the Cyber Fox's face, eyes lit, in his hood. [background] false = transparent with extra margin
+ * (Android adaptive foreground, which the launcher crops to its own shape).
+ */
+@Composable
+fun FoxIconArt(background: Boolean, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        if (background) {
+            drawRoundRect(Brush.verticalGradient(listOf(Color(0xFF0B141B), Bg)), size = size, cornerRadius = CornerRadius(w * 0.22f))
+            drawCircle(Brush.radialGradient(listOf(Green.copy(alpha = 0.38f), Color.Transparent), center, w * 0.55f), w * 0.55f, center)
+            drawRoundRect(Green.copy(alpha = 0.55f), Offset(w * 0.03f, w * 0.03f), Size(w * 0.94f, w * 0.94f), CornerRadius(w * 0.19f), style = Stroke(w * 0.022f))
+        } else drawCircle(Brush.radialGradient(listOf(Green.copy(alpha = 0.34f), Color.Transparent), center, w * 0.36f), w * 0.36f, center)
+        // Frame the head: design-grid box x 88..312, y 96..320 (above the laptop).
+        val fill = if (background) 0.86f else 0.56f
+        val k = w * fill / 224f
+        clipRect(0f, 0f, size.width, if (background) w * 0.93f else w * 0.5f + 112f * k) {
+            withTransform({ translate(w / 2f - 200f * k, w / 2f - 208f * k); scale(k, k, Offset.Zero) }) {
+                fox(2600f, 2600f, typing = false, granted = 1f, welcome = 1f, head = true)
+            }
+        }
+    }
+}
+
 /** Faint falling code across the whole window. */
 private fun DrawScope.codeRain(t: Float) {
     val cols = (size.width / 26f).toInt().coerceAtLeast(8)
@@ -142,11 +167,11 @@ private fun DrawScope.scene(t: Float, raw: Float, tm: TextMeasurer, s: Float) {
     withTransform({ translate(0f, 58f) }) { fox(t, raw, typing, granted, welcome) }
 }
 
-private fun DrawScope.fox(t: Float, raw: Float, typing: Boolean, granted: Float, welcome: Float) {
+private fun DrawScope.fox(t: Float, raw: Float, typing: Boolean, granted: Float, welcome: Float, head: Boolean = false) {
     val bob = sin(t / 260f) * 1.5f
     // tail
     val swing = sin(t / 300f) * 7f + granted * 10f
-    rotate(swing, Offset(282f, 388f)) {
+    if (!head) rotate(swing, Offset(282f, 388f)) {
         val tail = Path().apply {
             moveTo(272f, 392f); cubicTo(318f, 388f, 352f, 352f, 346f, 300f); cubicTo(372f, 340f, 362f, 396f, 300f, 404f); close()
         }
@@ -223,6 +248,7 @@ private fun DrawScope.fox(t: Float, raw: Float, typing: Boolean, granted: Float,
         drawLine(Fox, Offset(216f, 300f), Offset(218f, 322f), 2.6f, StrokeCap.Round)
     }
 
+    if (head) return
     // laptop (lid facing us)
     drawRoundRect(Color(0xFF1B2433), Offset(98f, 322f), Size(204f, 84f), CornerRadius(9f))
     drawRoundRect(Color(0xFF34455F), Offset(98f, 322f), Size(204f, 84f), CornerRadius(9f), style = Stroke(2f))

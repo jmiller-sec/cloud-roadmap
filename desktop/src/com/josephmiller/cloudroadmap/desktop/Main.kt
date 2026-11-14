@@ -94,9 +94,7 @@ fun NavRail(current: Tab, app: AppState, onPick: (Tab) -> Unit) {
         Modifier.width(96.dp).fillMaxHeight().background(Neon.Panel.copy(alpha = 0.85f)).padding(vertical = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Neon.Cyan, Neon.Violet))), contentAlignment = Alignment.Center) {
-            Text("CR", color = Neon.Bg, fontWeight = FontWeight.Black, fontSize = 16.sp)
-        }
+        FoxIconArt(true, Modifier.size(52.dp))
         Spacer(Modifier.height(14.dp))
         Tab.entries.forEach { t ->
             val sel = t == current
