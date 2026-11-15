@@ -79,8 +79,10 @@ object Gate {
 
     // ---------- warm-up Saturdays (before Dec 1) ----------
     private const val PT_URL = "https://www.netacad.com/courses/getting-started-cisco-packet-tracer"
-    val WARMUP: Map<LocalDate, Int> = mapOf(LocalDate.parse("2026-11-14") to 1, LocalDate.parse("2026-11-21") to 2)
+    val WARMUP: Map<LocalDate, Int> = mapOf(LocalDate.parse("2026-11-14") to 1, LocalDate.parse("2026-11-15") to 1, LocalDate.parse("2026-11-21") to 2)
     const val WARMUP_CAP = 60
+    /** One-off: the Sunday he asked for a hands-on taste. Lesson 1 videos first, then two intro rooms, same 60-minute cap. */
+    val THM_INTRO_DAY: LocalDate = LocalDate.parse("2026-11-15")
     /** Hands-on part only on a full day: check-in 4-5 AND 7h+ of sleep. Anything less = videos only. */
     fun warmupFull(r: Roadmap, d: LocalDate) = checkin(r, d) != null && score(r, d) == 3
 
@@ -94,10 +96,21 @@ object Gate {
                     "${v.channel}: ${v.title}. Then tap the circle and pass the quick check (2 of 3). Miss it: rewatch and retry.", null, v.url)
             }
         }
-        if (warmupFull(r, d)) out += DayTask("todo:warm${n}_pt", "todo", "Step 3: hands-on (about 30 min)",
-            "Cisco's free 2-hour course \"Getting Started with Cisco Packet Tracer\" (log in with your NetAcad account). " +
-                (if (n == 1) "Do the first half: the interface, adding devices, cabling." else "Do the second half: simulation mode and the final activity.") +
-                " If the link moved, search NetAcad for the course name.", null, PT_URL)
+        if (warmupFull(r, d)) {
+            if (d == THM_INTRO_DAY) {
+                // Sun Nov 15: two short TryHackMe intro rooms that are NOT part of any lesson (the lesson rooms stay untouched for Dec).
+                out += DayTask("todo:warm_thm_off", "todo", "Step 3: hands-on (about 10 min)",
+                    "TryHackMe: Offensive Security Intro. Make your free account first, then hack the fake bank. Only this room and the next one: the networking rooms belong to your lessons.", null, "https://tryhackme.com/room/offensivesecurityintro")
+                out += DayTask("todo:warm_thm_def", "todo", "Step 4: hands-on (about 15 min)",
+                    "TryHackMe: Defensive Security Intro. Stop a live attack on the fake bank, the way a SOC analyst would. Then you're done for the day.", null, "https://tryhackme.com/room/defensivesecurityintro")
+            } else {
+                val firstHalf = n == 1 || "todo:warm1_pt" !in r.studyDone
+                out += DayTask("todo:warm${n}_pt", "todo", "Step 3: hands-on (about 30 min)",
+                    "Cisco's free 2-hour course \"Getting Started with Cisco Packet Tracer\" (log in with your NetAcad account). " +
+                        (if (firstHalf) "Start at the beginning and do the first half: the interface, adding devices, cabling." else "Do the second half: simulation mode and the final activity.") +
+                        " If the link moved, search NetAcad for the course name.", null, PT_URL)
+            }
+        }
         else out += DayTask("$d|warmnote", "rest", "Hands-on part skipped",
             why(r, d)?.let { "$it Hands-on needs a full day (check-in 4-5 and 7h+ sleep), so it's videos only." } ?: "Check in first.", null)
         return out

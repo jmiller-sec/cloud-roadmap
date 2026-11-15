@@ -214,6 +214,20 @@ class BurnoutTest {
         assertTrue(Bundles.isDone(r2, b1))
     }
 
+    @Test fun sundayNov15IsLesson1VideosThenTwoIntroRooms() {
+        val r = Roadmap(); val sun = d("2026-11-15")
+        assertEquals(60, Burnout.capMin(sun, r))
+        // Low sleep or a low check-in: videos only.
+        r.checkin["2026-11-15"] = 4; r.sleep["2026-11-15"] = 300
+        assertEquals(listOf("vid:1:pn", "vid:1:nc"), StudyPlan.tasksFor(sun, r).filter { it.stream != "rest" }.map { it.key })
+        // Both good: the two intro rooms follow the videos. No lesson room, no Packet Tracer.
+        r.sleep["2026-11-15"] = 470
+        assertEquals(listOf("vid:1:pn", "vid:1:nc", "todo:warm_thm_off", "todo:warm_thm_def"), StudyPlan.tasksFor(sun, r).filter { it.stream != "rest" }.map { it.key })
+        // Nov 21 starts the Packet Tracer course from the beginning, since the first half was never done.
+        r.checkin["2026-11-21"] = 5; r.sleep["2026-11-21"] = 480
+        assertTrue(StudyPlan.tasksFor(d("2026-11-21"), r).first { it.key == "todo:warm2_pt" }.task.contains("first half"))
+    }
+
     @Test fun everyDayNamesItsExactVideo() {
         // All 26 lessons carry two exact YouTube links, in the bundle, in order: first video before Sophia, second after.
         assertEquals(26, Videos.lessons.size)
