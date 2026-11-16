@@ -228,6 +228,19 @@ class BurnoutTest {
         assertTrue(StudyPlan.tasksFor(d("2026-11-21"), r).first { it.key == "todo:warm2_pt" }.task.contains("first half"))
     }
 
+    @Test fun warmupHandsOnBarIsSixHoursAndThreeFromNov21() {
+        val r = Roadmap(); val sun = d("2026-11-15"); val sat = d("2026-11-21")
+        // Nov 15 keeps the old bar: 6h13 with a 4 stays videos only, even after the change.
+        r.checkin["2026-11-15"] = 4; r.sleep["2026-11-15"] = 373
+        assertFalse(Gate.warmupFull(r, sun))
+        // Nov 21: 6h+ and 3+ opens it; either one short keeps it shut; no sleep reading keeps it shut.
+        r.checkin["2026-11-21"] = 3; r.sleep["2026-11-21"] = 360
+        assertTrue(Gate.warmupFull(r, sat))
+        r.sleep["2026-11-21"] = 359; assertFalse(Gate.warmupFull(r, sat))
+        r.sleep["2026-11-21"] = 480; r.checkin["2026-11-21"] = 2; assertFalse(Gate.warmupFull(r, sat))
+        r.checkin["2026-11-21"] = 5; r.sleep.remove("2026-11-21"); assertFalse(Gate.warmupFull(r, sat))
+    }
+
     @Test fun everyDayNamesItsExactVideo() {
         // All 26 lessons carry two exact YouTube links, in the bundle, in order: first video before Sophia, second after.
         assertEquals(26, Videos.lessons.size)

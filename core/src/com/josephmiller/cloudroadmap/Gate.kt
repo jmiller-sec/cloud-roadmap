@@ -83,8 +83,18 @@ object Gate {
     const val WARMUP_CAP = 60
     /** One-off: the Sunday he asked for a hands-on taste. Lesson 1 videos first, then two intro rooms, same 60-minute cap. */
     val THM_INTRO_DAY: LocalDate = LocalDate.parse("2026-11-15")
-    /** Hands-on part only on a full day: check-in 4-5 AND 7h+ of sleep. Anything less = videos only. */
-    fun warmupFull(r: Roadmap, d: LocalDate) = checkin(r, d) != null && score(r, d) == 3
+    /**
+     * Hands-on part of a warm-up day. It's a short, light step, so from Nov 21 the bar is check-in 3+ AND 6h+ of sleep
+     * (agreed Nov 15, deliberately not applied that same evening). Both still have to match; no sleep reading = not open.
+     * Before Nov 21 it was a full day: check-in 4-5 AND 7h+. Study days from Dec 1 are untouched by this.
+     */
+    const val WARMUP_SLEEP_MIN = 360
+    val WARMUP_EASED_FROM: LocalDate = LocalDate.parse("2026-11-21")
+    fun warmupFull(r: Roadmap, d: LocalDate): Boolean {
+        val c = checkin(r, d) ?: return false
+        if (d.isBefore(WARMUP_EASED_FROM)) return score(r, d) == 3
+        return c >= 3 && (Burnout.sleepMin(r, d) ?: 0) >= WARMUP_SLEEP_MIN
+    }
 
     fun warmupTasks(r: Roadmap, d: LocalDate): List<DayTask> {
         val n = WARMUP[d] ?: return emptyList()
@@ -112,7 +122,8 @@ object Gate {
             }
         }
         else out += DayTask("$d|warmnote", "rest", "Hands-on part skipped",
-            why(r, d)?.let { "$it Hands-on needs a full day (check-in 4-5 and 7h+ sleep), so it's videos only." } ?: "Check in first.", null)
+            if (checkin(r, d) == null) "Check in first." else (why(r, d) ?: "") + (if (d.isBefore(WARMUP_EASED_FROM)) " Hands-on needs a full day (check-in 4-5 and 7h+ sleep), so it's videos only."
+                else " Hands-on needs a check-in of 3+ and 6h+ of sleep, so it's videos only."), null)
         return out
     }
 }
