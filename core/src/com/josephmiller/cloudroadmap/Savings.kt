@@ -24,15 +24,69 @@ object Savings {
     fun key(d: LocalDate) = "save:$d"
     val paydays: List<LocalDate> get() = generateSequence(FIRST) { it.plusDays(1) }.takeWhile { !it.isAfter(LAST) }.filter { isPayday(it) }.toList()
     private fun done(r: Roadmap) = paydays.filter { key(it) in r.studyDone }
-    fun carSaved(r: Roadmap) = minOf(CAR_GOAL, done(r).count { !it.isAfter(CAR_LAST) } * CAR_PER)
-    fun wguSaved(r: Roadmap) = done(r).size * WGU_PER
+
+    /** What actually went into [goal] ("car" or "wgu") on [d]: the logged amount, or the plan amount for an old tick with no amount. */
+    fun amountOn(r: Roadmap, goal: String, d: LocalDate): Int {
+        val extra = r.money["$goal+|$d"] ?: 0
+        val logged = r.money["$goal|$d"]
+        val payday = when {
+            logged != null -> logged
+            isPayday(d) && key(d) in r.studyDone -> if (goal == "car") (if (d.isAfter(CAR_LAST)) 0 else CAR_PER) else WGU_PER
+            else -> 0
+        }
+        return payday + extra
+    }
+
+    private fun allDates(r: Roadmap): List<LocalDate> =
+        (paydays + r.money.keys.mapNotNull { k -> runCatching { LocalDate.parse(k.substringAfter("|")) }.getOrNull() }).distinct().sorted()
+
+    fun saved(r: Roadmap, goal: String, upTo: LocalDate? = null) =
+        allDates(r).filter { upTo == null || !it.isAfter(upTo) }.sumOf { amountOn(r, goal, it) }
+    fun carSaved(r: Roadmap) = saved(r, "car")
+    fun wguSaved(r: Roadmap) = saved(r, "wgu")
+
+    /** Payday step done: record what was actually moved. */
+    fun recordPayday(r: Roadmap, d: LocalDate, car: Int, wgu: Int) {
+        r.money["car|$d"] = car; r.money["wgu|$d"] = wgu; r.studyDone.add(key(d))
+    }
+
+    /** Money moved outside a payday (or taken out: negative). Adds to anything logged that day. */
+    fun recordExtra(r: Roadmap, d: LocalDate, car: Int, wgu: Int) {
+        if (car != 0) r.money["car+|$d"] = (r.money["car+|$d"] ?: 0) + car
+        if (wgu != 0) r.money["wgu+|$d"] = (r.money["wgu+|$d"] ?: 0) + wgu
+    }
+
+    /** One point per payday: what the plan says you should have by then, and what you've actually saved (null after today). */
+    class Point(val day: LocalDate, val planned: Int, val actual: Int?)
+
+    fun carSeries(r: Roadmap, today: LocalDate): List<Point> {
+        var plan = 0
+        return paydays.filter { !it.isAfter(CAR_LAST) }.map { d ->
+            plan = minOf(CAR_GOAL, plan + CAR_PER)
+            Point(d, plan, if (d.isAfter(today)) null else saved(r, "car", d))
+        }
+    }
+
+    fun wguSeries(r: Roadmap, today: LocalDate): List<Point> {
+        var plan = 0
+        return paydays.map { d ->
+            plan += WGU_PER
+            Point(d, plan, if (d.isAfter(today)) null else saved(r, "wgu", d))
+        }
+    }
+
+    /** How far ahead (+) or behind (-) of the plan you are today. */
+    fun gap(r: Roadmap, goal: String, series: List<Point>, today: LocalDate): Int {
+        val past = series.filter { !it.day.isAfter(today) }
+        return if (past.isEmpty()) 0 else saved(r, goal, today) - past.last().planned
+    }
 
     fun paydayTask(d: LocalDate, r: Roadmap): DayTask? {
         if (!isPayday(d)) return null
         val wgu = "WGU: \$${wguSaved(r)} of \$$WGU_GOAL."
         return if (!d.isAfter(CAR_LAST)) DayTask(key(d), "money", "Payday · save \$500",
-            "Move \$$CAR_PER to the car fund (Texans CU) and \$$WGU_PER to WGU savings. Car: \$${carSaved(r)} of \$$CAR_GOAL by Mar 1. $wgu Tap the circle once it's moved.", "car")
+            "Move \$$CAR_PER to the car fund (Texans CU) and \$$WGU_PER to WGU savings. Car: \$${carSaved(r)} of \$$CAR_GOAL by Mar 1. $wgu Tap the circle and enter what you actually moved.", "car")
         else DayTask(key(d), "money", "Payday · WGU savings",
-            "Move \$$WGU_PER to WGU savings (the car note and insurance come out of the rest; keep them under \$$CAR_MAX_MONTHLY a month). $wgu Tap the circle once it's moved.", "college_save")
+            "Move \$$WGU_PER to WGU savings (the car note and insurance come out of the rest; keep them under \$$CAR_MAX_MONTHLY a month). $wgu Tap the circle and enter what you actually moved.", "college_save")
     }
 }

@@ -267,7 +267,20 @@ class BurnoutTest {
         assertTrue(Savings.paydayTask(d("2027-03-07"), r)!!.task.startsWith("Move \$200 to WGU"))
         assertNull(Savings.paydayTask(d("2026-11-23"), r)); assertNull(Savings.paydayTask(d("2027-08-07"), r))
         Savings.paydays.forEach { r.studyDone.add(Savings.key(it)) }
-        assertEquals(2000, Savings.carSaved(r)); assertEquals(3400, Savings.wguSaved(r))
+        assertEquals(2100, Savings.carSaved(r)); assertEquals(3400, Savings.wguSaved(r))
+    }
+
+    @Test fun actualAmountsCountNotJustTicks() {
+        val r = Roadmap()
+        Savings.recordPayday(r, d("2026-11-22"), 250, 200)
+        Savings.recordExtra(r, d("2026-11-30"), -100, 0)
+        r.studyDone.add(Savings.key(d("2026-12-07"))) // old-style tick: counts as the plan amount
+        assertEquals(250 - 100 + 300, Savings.carSaved(r)); assertEquals(400, Savings.wguSaved(r))
+        val day = d("2026-12-07")
+        assertEquals(450 - 600, Savings.gap(r, "car", Savings.carSeries(r, day), day))
+        val back = Roadmap.fromJson(r.toJson()); assertEquals(r.money, back.money)
+        val t = StudyPlan.tasksFor(d("2026-11-22"), r).first { it.stream == "money" }
+        r.toggleTask(t, d("2026-11-22")); assertEquals(0, Savings.amountOn(r, "car", d("2026-11-22")))
     }
 
     @Test fun everyDayNamesItsExactVideo() {

@@ -37,6 +37,8 @@ class Roadmap(
     var sleepStatus: String = "",
     /** Pre-study burnout check-in (1-5), keyed by date. */
     val checkin: MutableMap<String, Int> = mutableMapOf(),
+    /** Money actually moved, keyed "car|DATE" / "wgu|DATE" (paydays) or "car+|DATE" / "wgu+|DATE" (extra, can be negative). */
+    val money: MutableMap<String, Int> = mutableMapOf(),
     /** Minutes studied per day, banked from the burnout timer. */
     val studyMin: MutableMap<String, Int> = mutableMapOf(),
     var timerStart: Long = 0,
@@ -82,6 +84,7 @@ class Roadmap(
                 alertLog = o.optJSONObject("alertLog")?.let { a -> a.keys().asSequence().associateWith { k -> a.getInt(k) }.toMutableMap() } ?: mutableMapOf(),
                 energy = o.optJSONObject("energy")?.let { a -> a.keys().asSequence().associateWith { k -> a.getInt(k) }.toMutableMap() } ?: mutableMapOf(),
                 sleepStatus = o.optString("sleepStatus", ""),
+                money = o.optJSONObject("money")?.let { a -> a.keys().asSequence().associateWith { k -> a.getInt(k) }.toMutableMap() } ?: mutableMapOf(),
                 checkin = o.optJSONObject("checkin")?.let { a -> a.keys().asSequence().associateWith { k -> a.getInt(k) }.toMutableMap() } ?: mutableMapOf(),
                 sleep = o.optJSONObject("sleep")?.let { a -> a.keys().asSequence().associateWith { k -> a.getInt(k) }.toMutableMap() } ?: mutableMapOf(),
                 studyMin = o.optJSONObject("studyMin")?.let { a -> a.keys().asSequence().associateWith { k -> a.getInt(k) }.toMutableMap() } ?: mutableMapOf(),
@@ -114,6 +117,7 @@ class Roadmap(
         put("studyDone", JSONArray().apply { studyDone.sorted().forEach { put(it) } }); put("studyShift", studyShift)
         put("energy", JSONObject().apply { energy.forEach { (k, v) -> put(k, v) } })
         put("sleepStatus", sleepStatus)
+        put("money", JSONObject().apply { money.forEach { (k, v) -> put(k, v) } })
         put("checkin", JSONObject().apply { checkin.entries.sortedBy { it.key }.takeLast(120).forEach { (k, v) -> put(k, v) } })
         put("sleep", JSONObject().apply { sleep.entries.sortedBy { it.key }.takeLast(120).forEach { (k, v) -> put(k, v) } })
         put("studyMin", JSONObject().apply { studyMin.forEach { (k, v) -> put(k, v) } })
@@ -431,6 +435,7 @@ class Roadmap(
             if (t.stream == "todo") t.itemId?.let { id -> undo(id, today) }
             if (t.stream == "thm" || t.stream == "video" || t.stream == "job") studyDone.remove("$today|${t.stream}")
             if (t.stream == "thm" && item("thm_soc1")?.status == Status.DONE) undo("thm_soc1", today)
+            if (t.stream == "money") t.key.removePrefix("save:").let { d -> money["car|$d"] = 0; money["wgu|$d"] = 0 }
             return
         }
         if (t.stream == "todo") {

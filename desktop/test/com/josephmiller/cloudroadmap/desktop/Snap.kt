@@ -3,6 +3,9 @@ package com.josephmiller.cloudroadmap.desktop
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.ImageComposeScene
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Density
 import org.jetbrains.skia.EncodedImageFormat
 import java.io.File
@@ -14,6 +17,7 @@ fun main(args: Array<String>) {
     // Sample progress: bundle 1 done, bundle 2 half done, timer running 70 min in.
     val d = app.today()
     val b1 = com.josephmiller.cloudroadmap.Bundles.byN(1)
+    System.getenv("SNAP_SAVES")?.split(",")?.forEach { app.r.studyDone.add("save:$it") }
     val b2 = com.josephmiller.cloudroadmap.Bundles.byN(2)
     if (System.getenv("SNAP_FRESH") == null) {
         b1.sections.forEach { s -> app.r.toggleTask(com.josephmiller.cloudroadmap.StudyPlan.sectionTask(b1, s), d) }
@@ -34,5 +38,13 @@ fun main(args: Array<String>) {
         File(out, "${tab.name.lowercase()}.png").writeBytes(img.encodeToData(EncodedImageFormat.PNG)!!.bytes)
         scene.close()
     }
+    val ms = ImageComposeScene(460, 560, Density(1f)) {
+        MaterialTheme(colorScheme = darkColorScheme(primary = Neon.Cyan, background = Neon.Bg, surface = Neon.Panel)) {
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.background(Neon.Bg).padding(16.dp)) { MoneyGoalsCard(app.r, d) }
+        }
+    }
+    repeat(3) { ms.render((it * 400_000_000L)) }
+    File(out, "money.png").writeBytes(ms.render(2_000_000_000L).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+    ms.close()
     System.exit(0)
 }

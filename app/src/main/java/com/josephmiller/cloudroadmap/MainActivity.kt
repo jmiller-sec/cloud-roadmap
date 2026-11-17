@@ -849,6 +849,7 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
     var pendingWarm by remember { mutableStateOf<DayTask?>(null) }
     var pendingGate by remember { mutableStateOf<StudyBundle?>(null) }
     var vquiz by remember { mutableStateOf<Triple<StudyBundle, LessonPair, String>?>(null) }
+    var payday by remember { mutableStateOf<DayTask?>(null) }
     val sat = ThmPlan.saturdayOf(today)
     val weekStart = sat.minusDays(4) // Tue
     val monthDays = r.studyDaysThisMonth(today)
@@ -944,6 +945,7 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
                         TaskRow(t, r.isDone(t), locked = waits || (needsCheckin && t.stream != "rest" && !r.isDone(t))) {
                         if (needsCheckin && t.stream != "rest" && !r.isDone(t)) toast("Check in first: how do you feel right now?")
                         else if (waits) toast("Do the step above this one first.")
+                        else if (t.stream == "money" && !r.isDone(t)) payday = t
                         else if (t.stream == "lvideo" && !r.isDone(t)) {
                             val n = t.key.split(":")[1].toInt()
                             Videos.lessonByBundle[n]?.let { vquiz = Triple(Bundles.byN(n), it, t.key.substringAfterLast(":")) }
@@ -1071,6 +1073,9 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
                 }
             }
 
+            MoneyGoalsCard(r, today, onLog = { c, w -> change { Savings.recordExtra(it, today, c, w) }; toast("Logged.") })
+            Spacer(Modifier.height(16.dp))
+
             // Portfolio
             SectionLabel("Portfolio · ${r.portfolio.size} entries", Neon.Green)
             Text(
@@ -1153,6 +1158,13 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
                 pendingWarm = null; quiz = null
             },
             onCancel = { pendingWarm = null; pendingGate = null; quiz = null })
+    }
+    payday?.let { t ->
+        val d = LocalDate.parse(t.key.removePrefix("save:"))
+        val carToo = !d.isAfter(Savings.CAR_LAST)
+        MoneyDialog("Payday: what did you move?", if (carToo) "Plan: \$${Savings.CAR_PER} car + \$${Savings.WGU_PER} WGU. Change it if it was different." else "Plan: \$${Savings.WGU_PER} to WGU. Change it if it was different.",
+            carToo, if (carToo) Savings.CAR_PER else 0, Savings.WGU_PER,
+            onSave = { c, w -> change { Savings.recordPayday(it, d, c, w) }; payday = null }, onCancel = { payday = null })
     }
     vquiz?.let { (b, pair, k) ->
         val v = if (k == "pn") pair.pn else pair.chuck
@@ -2062,7 +2074,7 @@ private fun SettingsTab(r: Roadmap, today: LocalDate, refresh: () -> Unit, chang
                     Store.save(ctx, Roadmap(credlyUser = r.credlyUser, feedUrl = r.feedUrl)); refresh(); status = "Plan reset."
                 }
             }
-            Text("CLOUD ROADMAP v7.1 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
+            Text("CLOUD ROADMAP v7.2 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
                 textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 18.dp))
         }
     }

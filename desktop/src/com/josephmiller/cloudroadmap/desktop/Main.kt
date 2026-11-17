@@ -164,6 +164,7 @@ fun WtdWide(app: AppState, hide: (Boolean) -> Unit) {
 
     var pendingGate by remember { mutableStateOf<StudyBundle?>(null) }
     var vquiz by remember { mutableStateOf<Triple<StudyBundle, LessonPair, String>?>(null) }
+    var payday by remember { mutableStateOf<DayTask?>(null) }
     var hint by remember { mutableStateOf<String?>(null) }
     val needsCheckin = Gate.needsCheckin(r, today) && today == LocalDate.now()
     fun startTimer() {
@@ -224,7 +225,7 @@ fun WtdWide(app: AppState, hide: (Boolean) -> Unit) {
                     others.forEachIndexed { i, o ->
                         val earlier = others.take(i).firstOrNull { it.stream != "rest" && it.stream != "money" && !r.isDone(it) }
                         val outOfOrder = earlier != null && (o.stream == "lvideo" || earlier.stream == "lvideo" || earlier.where.startsWith("Watch first"))
-                        OtherTaskRow(app, o, today, onVideo = { n, k -> Videos.lessonByBundle[n]?.let { vquiz = Triple(Bundles.byN(n), it, k) } }) {
+                        OtherTaskRow(app, o, today, onVideo = { n, k -> Videos.lessonByBundle[n]?.let { vquiz = Triple(Bundles.byN(n), it, k) } }, onMoney = { payday = it }) {
                             if (needsCheckin) "Check in first (right side): how do you feel right now?" else if (outOfOrder) "Do the step above this one first." else null
                         }
                     }
@@ -244,6 +245,7 @@ fun WtdWide(app: AppState, hide: (Boolean) -> Unit) {
             TimerCard(app, today, nowMs, capped, late, onStart = { startTimer() }, onOverride = { quiz = "override" to Quiz.pick(Burnout.currentUnit(r), 5, today, "override") })
             if (Burnout.isStudyDay(today) && real.any { it.stream != "todo" }) EnergyCard(app, today)
             WeekStrip(app, today)
+            MoneyGoalsCard(app.r, today, onLog = { c, w -> app.change { Savings.recordExtra(it, today, c, w) } })
             PortfolioCard(app)
         }
     }
@@ -263,6 +265,13 @@ fun WtdWide(app: AppState, hide: (Boolean) -> Unit) {
                 pendingWarm = null; quiz = null
             }, onCancel = { pendingWarm = null; pendingGate = null; quiz = null })
     }
+    payday?.let { t ->
+        val dd = LocalDate.parse(t.key.removePrefix("save:"))
+        val carToo = !dd.isAfter(Savings.CAR_LAST)
+        MoneyDialog("Payday: what did you move?", if (carToo) "Plan: \$${Savings.CAR_PER} car + \$${Savings.WGU_PER} WGU. Change it if it was different." else "Plan: \$${Savings.WGU_PER} to WGU. Change it if it was different.",
+            carToo, if (carToo) Savings.CAR_PER else 0, Savings.WGU_PER,
+            onSave = { c, w -> app.change { Savings.recordPayday(it, dd, c, w) }; payday = null }, onCancel = { payday = null })
+    }
     vquiz?.let { (b, pair, k) ->
         val v = if (k == "pn") pair.pn else pair.chuck
         QuizDialog("Quick check: ${v.title}", Quiz.afterVideo(b, k, today, Gate.videoFails(r, pair.key(k))),
@@ -280,7 +289,7 @@ fun WtdWide(app: AppState, hide: (Boolean) -> Unit) {
 }
 
 @Composable
-fun OtherTaskRow(app: AppState, t: DayTask, today: LocalDate, onVideo: (Int, String) -> Unit = { _, _ -> }, blocked: () -> String? = { null }) {
+fun OtherTaskRow(app: AppState, t: DayTask, today: LocalDate, onVideo: (Int, String) -> Unit = { _, _ -> }, onMoney: (DayTask) -> Unit = {}, blocked: () -> String? = { null }) {
     val done = app.r.isDone(t)
     var msg by remember(t.key) { mutableStateOf<String?>(null) }
     val c = when (t.stream) { "job" -> Color(0xFFFF8A65); "video", "lvideo" -> Color(0xFF4DA3FF); "thm" -> Neon.Green; "course" -> Neon.Amber; "lab" -> Neon.Violet; "todo" -> Color(0xFFFF7AC6); else -> Neon.Muted }
@@ -293,6 +302,7 @@ fun OtherTaskRow(app: AppState, t: DayTask, today: LocalDate, onVideo: (Int, Str
         if (t.stream != "rest") { Spacer(Modifier.width(12.dp)); CheckBubble(done, false, c) {
             val b = if (done) null else blocked()
             if (b != null) msg = b
+            else if (t.stream == "money" && !done) { msg = null; onMoney(t) }
             else if (t.stream == "lvideo" && !done) { msg = null; onVideo(t.key.split(":")[1].toInt(), t.key.substringAfterLast(":")) }
             else { msg = null; app.change { it.toggleTask(t, today) } }
         } }
