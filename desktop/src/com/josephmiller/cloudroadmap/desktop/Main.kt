@@ -222,7 +222,7 @@ fun WtdWide(app: AppState, hide: (Boolean) -> Unit) {
                     if (real.isNotEmpty()) { Spacer(Modifier.height(10.dp)); Bar(doneN.toFloat() / real.size, Neon.Cyan, Modifier.fillMaxWidth()) }
                     if (mode == Mode.B) Text("Your last two energy checks were low, so Saturday is 2 bundles this week.", color = Neon.Amber, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
                     others.forEachIndexed { i, o ->
-                        val earlier = others.take(i).firstOrNull { it.stream != "rest" && !r.isDone(it) }
+                        val earlier = others.take(i).firstOrNull { it.stream != "rest" && it.stream != "money" && !r.isDone(it) }
                         val outOfOrder = earlier != null && (o.stream == "lvideo" || earlier.stream == "lvideo" || earlier.where.startsWith("Watch first"))
                         OtherTaskRow(app, o, today, onVideo = { n, k -> Videos.lessonByBundle[n]?.let { vquiz = Triple(Bundles.byN(n), it, k) } }) {
                             if (needsCheckin) "Check in first (right side): how do you feel right now?" else if (outOfOrder) "Do the step above this one first." else null
@@ -450,7 +450,7 @@ fun WeekStrip(app: AppState, today: LocalDate) {
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             (0..6).forEach { k ->
                 val day = start.plusDays(k.toLong())
-                val study = StudyPlan.tasksFor(day, app.r).any { it.stream != "rest" }
+                val study = StudyPlan.tasksFor(day, app.r).any { it.stream != "rest" && it.stream != "money" }
                 val done = app.r.dayDone(day)
                 val c = when { done -> Neon.Green; !study -> Neon.Line; else -> Neon.Muted }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {

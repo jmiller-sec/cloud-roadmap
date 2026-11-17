@@ -770,12 +770,13 @@ private fun kindColor(kind: String) = when (kind) {
     "jobs" -> Color(0xFFFF7AC6)
     "alerts" -> Neon.Red
     "todo" -> Color(0xFFFF7AC6)
+    "money" -> Neon.Green
     else -> Neon.Muted
 }
 
 private fun kindLabel(kind: String) = when (kind) {
     "tcm" -> "TCM"; "soc" -> "SOC"; "ld" -> "PRACTICE"; "lab" -> "LAB"; "video", "lvideo" -> "VIDEO"; "thm" -> "TRYHACKME"; "pt" -> "PACKET TRACER"; "bundle" -> "BUNDLE"; "job" -> "JOB HUNT"
-    "course" -> "COURSE"; "jobs" -> "JOBS"; "alerts" -> "ALERTS"; "todo" -> "TO-DO"; else -> "REST"
+    "course" -> "COURSE"; "jobs" -> "JOBS"; "alerts" -> "ALERTS"; "todo" -> "TO-DO"; "money" -> "MONEY"; else -> "REST"
 }
 
 @Composable
@@ -938,7 +939,7 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
                             modifier = Modifier.padding(top = 6.dp).clickable { quiz = "override" to Quiz.pick(Burnout.currentUnit(r), 5, today, "override") })
                     }
                     others.forEachIndexed { i, t ->
-                        val earlier = others.take(i).firstOrNull { it.stream != "rest" && !r.isDone(it) }
+                        val earlier = others.take(i).firstOrNull { it.stream != "rest" && it.stream != "money" && !r.isDone(it) }
                         val waits = !r.isDone(t) && earlier != null && (t.stream == "lvideo" || earlier.stream == "lvideo" || earlier.where.startsWith("Watch first"))
                         TaskRow(t, r.isDone(t), locked = waits || (needsCheckin && t.stream != "rest" && !r.isDone(t))) {
                         if (needsCheckin && t.stream != "rest" && !r.isDone(t)) toast("Check in first: how do you feel right now?")
@@ -1049,7 +1050,7 @@ private fun WtdTab(r: Roadmap, today: LocalDate, change: ((Roadmap) -> Unit) -> 
                 Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                     (0..6).forEach { k ->
                         val day = weekStart.plusDays(k.toLong())
-                        val study = StudyPlan.tasksFor(day, r).any { it.stream != "rest" }
+                        val study = StudyPlan.tasksFor(day, r).any { it.stream != "rest" && it.stream != "money" }
                         val done = r.dayDone(day)
                         val isToday = day == today
                         val c = when { done -> Neon.Green; !study -> Neon.Line; else -> Neon.Muted }
@@ -2061,7 +2062,7 @@ private fun SettingsTab(r: Roadmap, today: LocalDate, refresh: () -> Unit, chang
                     Store.save(ctx, Roadmap(credlyUser = r.credlyUser, feedUrl = r.feedUrl)); refresh(); status = "Plan reset."
                 }
             }
-            Text("CLOUD ROADMAP v6.9 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
+            Text("CLOUD ROADMAP v7.0 · ${fmt(today).uppercase()}", color = Neon.Muted, fontSize = 10.sp, fontFamily = Mono,
                 textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 18.dp))
         }
     }

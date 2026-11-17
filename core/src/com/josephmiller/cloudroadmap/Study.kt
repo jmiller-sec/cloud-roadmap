@@ -33,8 +33,11 @@ object StudyPlan {
         b.key(s.id), "bundle", "Bundle ${b.n}/${Bundles.all.size} · ${b.title} · ${s.title}",
         (s.steps.mapIndexed { i, st -> "${i + 1}. $st" } + s.shots.map { "📸 $it" }).joinToString("\n"), "cs1015", s.url)
 
-    /** Everything to do on [date], in order. */
-    fun tasksFor(date: LocalDate, r: Roadmap): List<DayTask> {
+    /** Everything to do on [date], in order. On a payday the savings step comes first (it never blocks the others). */
+    fun tasksFor(date: LocalDate, r: Roadmap): List<DayTask> =
+        listOfNotNull(Savings.paydayTask(date, r)) + planTasks(date, r)
+
+    private fun planTasks(date: LocalDate, r: Roadmap): List<DayTask> {
         val out = mutableListOf<DayTask>()
         val off = ThmPlan.isOffWeek(date)
         val mode = Burnout.mode(r, date)
@@ -49,7 +52,7 @@ object StudyPlan {
         if (!off && mode != Mode.REST) when (date.dayOfWeek) {
             DayOfWeek.TUESDAY -> {
                 if (date == JOB_VIDEO_DAY) out += DayTask("todo:job_resume_vid", "todo", "Watch first · 12 min",
-                    "Simply Cyber: How I got SOC analyst experience without a job (real resume bullets). Then start the applications.", null, "https://youtu.be/SDAVWobpC3c")
+                    "Simply Cyber: How I got SOC analyst experience without a job (real resume bullets). Then use it on your resume tonight.", null, "https://youtu.be/SDAVWobpC3c")
                 Burnout.jobTask(date)?.let { out += it }
                 if (csDone && Burnout.jobTask(date) == null) videoTask(date, r)?.let { out += it }
             }

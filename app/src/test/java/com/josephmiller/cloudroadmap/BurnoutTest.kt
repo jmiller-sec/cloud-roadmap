@@ -117,7 +117,7 @@ class BurnoutTest {
     @Test fun nothingBeforeDec1ThenSetupPlusBundle1() {
         val r = Roadmap()
         (0..19L).map { d("2026-11-11").plusDays(it) }.filter { it !in Gate.WARMUP }.forEach {
-            assertEquals(it.toString(), listOf("rest"), StudyPlan.tasksFor(it, r).map { t -> t.stream })
+            assertEquals(it.toString(), listOf("rest"), StudyPlan.tasksFor(it, r).filter { t -> t.stream != "money" }.map { t -> t.stream })
         }
         val dec1 = StudyPlan.tasksFor(d("2026-12-01"), r)
         assertEquals(listOf("todo:setup_sophia", "todo:setup_thm"), dec1.filter { it.stream == "todo" }.map { it.key })
@@ -128,7 +128,7 @@ class BurnoutTest {
     @Test fun offWeeksAreEmpty() {
         val r = Roadmap()
         listOf("2026-11-24", "2026-11-26", "2026-11-28", "2026-12-22", "2026-12-24", "2026-12-26").forEach {
-            assertEquals(it, listOf("rest"), StudyPlan.tasksFor(d(it), r).map { t -> t.stream })
+            assertEquals(it, listOf("rest"), StudyPlan.tasksFor(d(it), r).filter { t -> t.stream != "money" }.map { t -> t.stream })
         }
     }
 
@@ -256,6 +256,16 @@ class BurnoutTest {
         assertEquals(d("2027-10-05"), r.item("apply")!!.start)
         assertEquals(d("2028-12-01"), r.item("soc_apply")!!.start)
         assertEquals(1, r.items.count { it.id == "college_save" })
+    }
+
+    @Test fun paydaySavingsStep() {
+        assertEquals(17, Savings.paydays.size)
+        assertEquals(4625, Savings.paydays.size * Savings.PER_CHECK + 1)
+        val r = Roadmap()
+        val t = StudyPlan.tasksFor(d("2026-11-22"), r)
+        assertEquals("save:2026-11-22", t[0].key); assertEquals("money", t[0].stream)
+        assertNull(Savings.paydayTask(d("2026-11-23"), r)); assertNull(Savings.paydayTask(d("2027-08-07"), r))
+        r.studyDone.add("save:2026-11-22"); assertEquals(272, Savings.saved(r))
     }
 
     @Test fun everyDayNamesItsExactVideo() {

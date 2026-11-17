@@ -545,7 +545,7 @@ class Roadmap(
             studyDone.add("fix:thm28")
         }
         // v6.9 (Nov 17 2026): applications wait until Oct 5 2027; SOC + cloud security move ~9 months; save for WGU.
-        if ("fix:hunt69" !in studyDone) {
+        if ("fix:hunt69" !in studyDone || "fix:save70" !in studyDone) {
             val d = Plan.defaults().associateBy { it.id }
             listOf("apply", "helpdesk_job", "k401_check", "soc_apply", "soc_job", "az500", "terraform", "portfolio", "cloudsec_job").forEach { id ->
                 val def = d[id] ?: return@forEach
@@ -555,7 +555,8 @@ class Roadmap(
                 val at = items.indexOfFirst { it.id == "car" }.let { if (it < 0) items.size else it }
                 items.add(at, def)
             }
-            studyDone.add("fix:hunt69")
+            item("college_save")?.title = d["college_save"]?.title ?: ""
+            studyDone.add("fix:hunt69"); studyDone.add("fix:save70")
         }
         // v6.8 (Nov 17 2026): car moves to Mar 1 2027; the 401k item becomes the rollover plan.
         if ("fix:car68" !in studyDone) {
