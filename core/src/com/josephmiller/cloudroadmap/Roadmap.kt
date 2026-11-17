@@ -544,6 +544,15 @@ class Roadmap(
             studyShift = 0
             studyDone.add("fix:thm28")
         }
+        // v6.8 (Nov 17 2026): car moves to Mar 1 2027; the 401k item becomes the rollover plan.
+        if ("fix:car68" !in studyDone) {
+            val d = Plan.defaults().associateBy { it.id }
+            listOf("car", "k401_check").forEach { id ->
+                val def = d[id] ?: return@forEach
+                item(id)?.takeIf { it.status != Status.DONE }?.let { it.title = def.title; it.start = def.start; it.end = def.end; it.originalEnd = def.end; it.autoExtended = 0 }
+            }
+            studyDone.add("fix:car68")
+        }
         // Nov 10 2026: Klaira confirmed by phone that CS1015 + the 3 Study.com courses transfer. Un-pause them.
         if ("fix:unpause29" !in studyDone) unpauseTransfers(today)
         // v3.0: Packet Tracer + a 3rd networking Saturday (Dec 5). SOC L1 Dec 12-Mar 27, projects from Apr 3.

@@ -241,6 +241,14 @@ class BurnoutTest {
         r.checkin["2026-11-21"] = 5; r.sleep.remove("2026-11-21"); assertFalse(Gate.warmupFull(r, sat))
     }
 
+    @Test fun carMovesToMarchAndJobHuntStays() {
+        val r = Roadmap(); r.applyOneTimeFixes(d("2026-11-17"))
+        assertEquals(d("2027-03-01"), r.item("car")!!.end)
+        assertTrue(r.item("car")!!.locked)
+        assertTrue(r.item("k401_check")!!.title.contains("IRA rollover"))
+        assertEquals(d("2027-01-15"), r.item("apply")!!.start)
+    }
+
     @Test fun everyDayNamesItsExactVideo() {
         // All 26 lessons carry two exact YouTube links, in the bundle, in order: first video before Sophia, second after.
         assertEquals(26, Videos.lessons.size)

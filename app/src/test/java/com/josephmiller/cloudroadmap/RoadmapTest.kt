@@ -39,7 +39,7 @@ class RoadmapTest {
     @Test fun lockedDatesNeverMove() {
         val r = Roadmap()
         r.markDone("k401_check", d("2027-01-20"), d("2027-01-20"))
-        assertEquals(d("2027-01-31"), r.item("car")!!.end)
+        assertEquals(d("2027-03-01"), r.item("car")!!.end)
     }
 
     @Test fun lateCheckExtendsOnceThenAsks() {

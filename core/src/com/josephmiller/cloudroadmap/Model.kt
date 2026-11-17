@@ -157,8 +157,9 @@ object Plan {
         i("resume", "projects", "Resume (badges + TryHackMe on top)", "2027-01-08", "2027-01-15"),
 
         // 3. Money checkpoint
-        i("k401_check", "money", "Check 401k loan + vesting", "2026-11-09", "2027-01-15"),
-        i("car", "money", "Buy the car", "2027-01-31", "2027-01-31", locked = true),
+        // Nov 17 2026: The Standard says pay the loan in full within 30 days of leaving, or it's taxed. Plan: IRA rollover by the tax deadline.
+        i("k401_check", "money", "401k loan: before accepting an offer, plan the IRA rollover (about \$160 a check)", "2026-11-09", "2027-04-30"),
+        i("car", "money", "Buy the car", "2027-03-01", "2027-03-01", locked = true),
 
         // 4. Help desk
         i("apply", "helpdesk", "Start applying", "2027-01-15", "2027-01-15", locked = true),
