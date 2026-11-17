@@ -160,8 +160,8 @@ object Plan {
         // Nov 17 2026: The Standard says pay the loan in full within 30 days of leaving, or it's taxed. Plan: IRA rollover by the tax deadline.
         i("k401_check", "money", "401k loan: before accepting an offer, plan the IRA rollover (about \$160 a check)", "2026-11-09", "2027-10-05"),
         // Nov 17 2026: he wants to see how WGU feels before switching jobs, and save for school first.
-        i("college_save", "money", "Save \$4,625 for WGU's first term: \$272 every paycheck", "2026-11-17", "2027-08-01"),
-        i("car", "money", "Buy the car", "2027-03-01", "2027-03-01", locked = true),
+        i("college_save", "money", "Save \$3,480 for WGU's first term (after Pell): \$200 every paycheck", "2026-11-17", "2027-08-01"),
+        i("car", "money", "Buy the car: \$2,000 down, note + insurance under \$600 a month", "2027-03-01", "2027-03-01", locked = true),
 
         // 4. Help desk
         // Nov 17 2026: applications wait until 2 months into the first WGU term. Jan-Sep Tuesdays are job-prep nights.

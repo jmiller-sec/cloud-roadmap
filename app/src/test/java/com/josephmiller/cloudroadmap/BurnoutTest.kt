@@ -260,12 +260,14 @@ class BurnoutTest {
 
     @Test fun paydaySavingsStep() {
         assertEquals(17, Savings.paydays.size)
-        assertEquals(4625, Savings.paydays.size * Savings.PER_CHECK + 1)
         val r = Roadmap()
         val t = StudyPlan.tasksFor(d("2026-11-22"), r)
         assertEquals("save:2026-11-22", t[0].key); assertEquals("money", t[0].stream)
+        assertTrue(t[0].task.contains("\$300 to the car fund"))
+        assertTrue(Savings.paydayTask(d("2027-03-07"), r)!!.task.startsWith("Move \$200 to WGU"))
         assertNull(Savings.paydayTask(d("2026-11-23"), r)); assertNull(Savings.paydayTask(d("2027-08-07"), r))
-        r.studyDone.add("save:2026-11-22"); assertEquals(272, Savings.saved(r))
+        Savings.paydays.forEach { r.studyDone.add(Savings.key(it)) }
+        assertEquals(2000, Savings.carSaved(r)); assertEquals(3400, Savings.wguSaved(r))
     }
 
     @Test fun everyDayNamesItsExactVideo() {

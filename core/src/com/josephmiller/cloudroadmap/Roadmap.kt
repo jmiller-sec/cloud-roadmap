@@ -544,6 +544,12 @@ class Roadmap(
             studyShift = 0
             studyDone.add("fix:thm28")
         }
+        // v7.1 (Nov 17 2026): car + WGU money goals per paycheck.
+        if ("fix:save71" !in studyDone) {
+            val d = Plan.defaults().associateBy { it.id }
+            listOf("college_save", "car").forEach { id -> item(id)?.let { it.title = d[id]?.title ?: it.title } }
+            studyDone.add("fix:save71")
+        }
         // v6.9 (Nov 17 2026): applications wait until Oct 5 2027; SOC + cloud security move ~9 months; save for WGU.
         if ("fix:hunt69" !in studyDone || "fix:save70" !in studyDone) {
             val d = Plan.defaults().associateBy { it.id }
