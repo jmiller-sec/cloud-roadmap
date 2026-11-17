@@ -158,12 +158,15 @@ object Plan {
 
         // 3. Money checkpoint
         // Nov 17 2026: The Standard says pay the loan in full within 30 days of leaving, or it's taxed. Plan: IRA rollover by the tax deadline.
-        i("k401_check", "money", "401k loan: before accepting an offer, plan the IRA rollover (about \$160 a check)", "2026-11-09", "2027-04-30"),
+        i("k401_check", "money", "401k loan: before accepting an offer, plan the IRA rollover (about \$160 a check)", "2026-11-09", "2027-10-05"),
+        // Nov 17 2026: he wants to see how WGU feels before switching jobs, and save for school first.
+        i("college_save", "money", "Save for WGU (set the per-check amount once you know the cost after aid)", "2026-11-17", "2027-08-01"),
         i("car", "money", "Buy the car", "2027-03-01", "2027-03-01", locked = true),
 
         // 4. Help desk
-        i("apply", "helpdesk", "Start applying", "2027-01-15", "2027-01-15", locked = true),
-        i("helpdesk_job", "helpdesk", "Land a help desk job", "2027-01-15", "2027-04-30"),
+        // Nov 17 2026: applications wait until 2 months into the first WGU term. Jan-Sep Tuesdays are job-prep nights.
+        i("apply", "helpdesk", "Start applying", "2027-10-05", "2027-10-05", locked = true),
+        i("helpdesk_job", "helpdesk", "Land a help desk job", "2027-10-05", "2028-01-31"),
 
         // 5. WGU
         i("wgu_start", "wgu", "Start WGU", "2027-08-01", "2027-08-01", locked = true),
@@ -177,15 +180,15 @@ object Plan {
         i("sc200", "cloudbasics", "SC-200 Security Operations Analyst", "2027-11-01", "2028-02-29", badge = "Security Operations Analyst"),
 
         // 7. SOC
-        i("soc_apply", "soc", "Apply for SOC jobs", "2028-03-01", "2028-06-30"),
-        i("soc_job", "soc", "Land a SOC analyst job", "2028-03-01", "2028-09-30"),
+        i("soc_apply", "soc", "Apply for SOC jobs", "2028-12-01", "2029-03-31"),
+        i("soc_job", "soc", "Land a SOC analyst job", "2028-12-01", "2029-06-30"),
 
         // 8. Cloud security
         i("aws_cq", "cloudsec", "AWS Cloud Quest (bonus)", "2024-08-01", "2024-08-14", badge = "AWS Cloud Quest"),
-        i("az500", "cloudsec", "AZ-500 Azure Security Engineer", "2029-01-01", "2029-06-30", badge = "Azure Security Engineer"),
-        i("terraform", "cloudsec", "Terraform", "2029-07-01", "2029-12-31"),
-        i("portfolio", "cloudsec", "Cloud security portfolio", "2029-01-01", "2030-06-30"),
-        i("cloudsec_job", "cloudsec", "Cloud security role", "2030-01-01", "2031-03-31"),
+        i("az500", "cloudsec", "AZ-500 Azure Security Engineer", "2029-10-01", "2030-03-31", badge = "Azure Security Engineer"),
+        i("terraform", "cloudsec", "Terraform", "2030-04-01", "2030-09-30"),
+        i("portfolio", "cloudsec", "Cloud security portfolio", "2029-10-01", "2031-03-31"),
+        i("cloudsec_job", "cloudsec", "Cloud security role", "2030-10-01", "2031-12-31"),
     )
 
     fun startingBadges(): MutableList<Badge> = mutableListOf(

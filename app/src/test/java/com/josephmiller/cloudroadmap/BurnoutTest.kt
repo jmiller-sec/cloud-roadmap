@@ -241,12 +241,21 @@ class BurnoutTest {
         r.checkin["2026-11-21"] = 5; r.sleep.remove("2026-11-21"); assertFalse(Gate.warmupFull(r, sat))
     }
 
-    @Test fun carMovesToMarchAndJobHuntStays() {
+    @Test fun carMovesToMarch() {
         val r = Roadmap(); r.applyOneTimeFixes(d("2026-11-17"))
         assertEquals(d("2027-03-01"), r.item("car")!!.end)
         assertTrue(r.item("car")!!.locked)
         assertTrue(r.item("k401_check")!!.title.contains("IRA rollover"))
-        assertEquals(d("2027-01-15"), r.item("apply")!!.start)
+    }
+
+    @Test fun applicationsWaitUntilOct5AndTuesdaysArePrepUntilThen() {
+        val prep = Burnout.jobTask(d("2027-01-26"))!!
+        assertTrue(prep.where.contains("job prep") && !prep.task.contains("applications"))
+        assertTrue(Burnout.jobTask(d("2027-10-05"))!!.task.startsWith("Send 5"))
+        val r = Roadmap(); r.studyDone.add("fix:v40"); r.applyOneTimeFixes(d("2026-11-17"))
+        assertEquals(d("2027-10-05"), r.item("apply")!!.start)
+        assertEquals(d("2028-12-01"), r.item("soc_apply")!!.start)
+        assertEquals(1, r.items.count { it.id == "college_save" })
     }
 
     @Test fun everyDayNamesItsExactVideo() {

@@ -20,6 +20,8 @@ object Burnout {
     const val OVERRIDE_MIN = 30
     const val LATE_HOUR = 20
     val JOB_NIGHTS_FROM: LocalDate = LocalDate.parse("2027-01-19")
+    /** Applications start here (Nov 17 2026 decision). Before it, Tuesday job nights are prep only. */
+    val APPLY_FROM: LocalDate = LocalDate.parse("2027-10-05")
     /** Everything starts Tue Dec 1 (Sophia reactivated that day). */
     val BUNDLES_FROM: LocalDate = LocalDate.parse("2026-12-01")
 
@@ -165,6 +167,16 @@ object Burnout {
     fun jobTask(d: LocalDate): DayTask? {
         if (d.dayOfWeek != DayOfWeek.TUESDAY || d.isBefore(JOB_NIGHTS_FROM) || ThmPlan.isOffWeek(d)) return null
         val q = interviewQs[((d.toEpochDay() / 7) % interviewQs.size).toInt()]
+        if (d.isBefore(APPLY_FROM)) {
+            val week = ((d.toEpochDay() - JOB_NIGHTS_FROM.toEpochDay()) / 7).toInt()
+            val (task, url) = when (week % 4) {
+                0 -> "Resume: add what you finished since last time (badges, TryHackMe rooms, labs). Keep it to one page." to null
+                1 -> "LinkedIn: improve one thing (headline, About section, or add your newest badge)." to "https://www.linkedin.com/"
+                2 -> "GitHub: tidy one repo's README (what it is, what you learned, a screenshot)." to "https://github.com/jmiller-sec"
+                else -> "Interview practice: answer out loud, then write a better version: \"$q\"" to null
+            }
+            return DayTask("job:$d", "job", "Evening · job prep (no applications until Oct 5)", "$task About 45 min.", "helpdesk_job", url)
+        }
         return DayTask("job:$d", "job", "Evening · job hunt",
             "Send 5 help desk / IT support applications (tailor the top of your resume to each). Then practice out loud: \"$q\"",
             "helpdesk_job", "https://www.indeed.com/jobs?q=help+desk&l=Dallas%2C+TX")
