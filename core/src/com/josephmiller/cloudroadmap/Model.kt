@@ -158,7 +158,7 @@ object Plan {
 
         // 3. Money checkpoint
         // Nov 17 2026: The Standard says pay the loan in full within 30 days of leaving, or it's taxed. Plan: IRA rollover by the tax deadline.
-        i("k401_check", "money", "401k loan: before accepting an offer, plan the IRA rollover (about \$160 a check)", "2026-11-09", "2027-10-05"),
+        i("k401_check", "money", "401k loan (about \$7,940 left at Oct 2027): ask HR for the Loan Program + if you can keep paying by bank ACH after leaving. Else pay it off by the end of the next quarter (leave Oct 5 = Mar 31, 2028) or roll it into an IRA by the tax deadline", "2026-11-09", "2027-10-05"),
         // Nov 17 2026: he wants to see how WGU feels before switching jobs, and save for school first.
         i("college_save", "money", "Save \$3,480 for WGU's first term (after Pell): \$200 every paycheck", "2026-11-17", "2027-08-01"),
         i("car", "money", "Buy the car: \$2,000 down, note + insurance under \$600 a month", "2027-03-01", "2027-03-01", locked = true),

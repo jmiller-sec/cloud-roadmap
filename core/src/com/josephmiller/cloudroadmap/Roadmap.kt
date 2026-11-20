@@ -549,6 +549,11 @@ class Roadmap(
             studyShift = 0
             studyDone.add("fix:thm28")
         }
+        // v7.3 (Nov 20 2026): 401k item from his signed loan note.
+        if ("fix:k401_73" !in studyDone) {
+            Plan.defaults().firstOrNull { it.id == "k401_check" }?.let { def -> item("k401_check")?.takeIf { it.status != Status.DONE }?.title = def.title }
+            studyDone.add("fix:k401_73")
+        }
         // v7.1 (Nov 17 2026): car + WGU money goals per paycheck.
         if ("fix:save71" !in studyDone) {
             val d = Plan.defaults().associateBy { it.id }

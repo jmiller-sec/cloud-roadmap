@@ -245,7 +245,7 @@ class BurnoutTest {
         val r = Roadmap(); r.applyOneTimeFixes(d("2026-11-17"))
         assertEquals(d("2027-03-01"), r.item("car")!!.end)
         assertTrue(r.item("car")!!.locked)
-        assertTrue(r.item("k401_check")!!.title.contains("IRA rollover"))
+        assertTrue(r.item("k401_check")!!.title.contains("IRA"))
     }
 
     @Test fun applicationsWaitUntilOct5AndTuesdaysArePrepUntilThen() {
